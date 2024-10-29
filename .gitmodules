@@ -1,0 +1,3 @@
+[submodule "llm-gateway"]
+	path = llm-gateway
+	url = https://github.com/aws-samples/llm-gateway.git
