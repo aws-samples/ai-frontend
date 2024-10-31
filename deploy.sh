@@ -1,13 +1,20 @@
 #!/bin/bash
 
-# Run the frontend deployment script in the background
-frontend_pid=$( (cd frontend && ./deploy.sh &) 2>&1 | awk '{print $1}' )
+# Make both deploy scripts executable
+chmod +x frontend/deploy.sh
+chmod +x llm_gateway/deploy.sh
 
-# Run the gateway deployment script in the background
-gateway_pid=$( (cd gateway && ./deploy.sh &) 2>&1 | awk '{print $1}' )
+# Save original directory
+ORIGINAL_DIR=$(pwd)
 
-# Wait for both scripts to finish
-wait $frontend_pid
-wait $gateway_pid
+# Run gateway deployment first
+echo "Starting gateway deployment..."
+cd llm_gateway && ./deploy.sh
+cd "$ORIGINAL_DIR"
+echo "COMPLETE: Gateway deployment."
 
-echo "Both deployments completed successfully."
+# Then run frontend deployment
+echo "Starting frontend deployment..."
+cd frontend && ./deploy.sh
+cd "$ORIGINAL_DIR"
+echo "COMPLETE: Frontend deployment."
