@@ -2,14 +2,14 @@
 
 # Make both deploy scripts executable
 chmod +x frontend/deploy.sh
-chmod +x llm_gateway/deploy.sh
+chmod +x gateway/deploy.sh
 
 # Save original directory
 ORIGINAL_DIR=$(pwd)
 
 # Run gateway deployment first
 echo "Starting gateway deployment..."
-cd llm_gateway && ./deploy.sh
+cd gateway && ./deploy.sh
 cd "$ORIGINAL_DIR"
 echo "COMPLETE: Gateway deployment."
 
