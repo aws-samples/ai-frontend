@@ -208,7 +208,7 @@ function HomePage() {
   const [chat] = useState(() => new Chat());
 
   useEffect(() => {
-    chat.apiKey = apiKey;
+    chat.setApiKey(apiKey || "");
   }, [apiKey, chat]);
 
   useEffect(() => {
@@ -271,7 +271,6 @@ function HomePage() {
         setThoughts((prevThoughts) => [...prevThoughts, new Thought(thought)]);
       };
 
-      console.log("chat.apiKey", chat.apiKey);
       const agentOutput = await chat.getResponse(
         message,
         thoughtCallback,
