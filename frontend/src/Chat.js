@@ -100,15 +100,9 @@ export class Chat {
     }
   }
 
-  async post(message) {
-    let fullResponse = "";
-    return await this.llmAnswerStreaming(message);
-  }
-
-  async getResponse(message, thoughtCallback = null, isReview = false) {
-    console.log(isReview);
+  async getResponse(message, model, thoughtCallback = null) {
     try {
-      const result = await this.post(message);
+      const result = await this.post(message, model);
 
       const reply = result
 
@@ -122,7 +116,7 @@ export class Chat {
     }
   }
 
-  async llmAnswerStreaming(question) {
+  async post(question, model) {
     const chatId = await this.threadSafeSessionState.get("chat_id");
     if (chatId) {
       // ToDo: Restore chat_id functionality to support server side history
@@ -135,7 +129,7 @@ export class Chat {
     let fullResponse = "";
     try {
       const stream = await this.client.chat.completions.create({
-        model: this.model,
+        model: model,
         messages: [{ role: "user", content: question }],
         max_tokens: 1000,
         temperature: 1,

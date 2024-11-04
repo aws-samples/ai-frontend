@@ -12,6 +12,10 @@ import {
   Drawer,
   List,
   TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 
@@ -206,6 +210,7 @@ function HomePage() {
   const [apiKey, setApiKey] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chat] = useState(() => new Chat());
+  const [selectedModel, setSelectedModel] = useState("anthropic.claude-3-sonnet-20240229-v1:0");
 
   useEffect(() => {
     chat.setApiKey(apiKey || "");
@@ -229,26 +234,38 @@ function HomePage() {
     setApiKey(event.target.value);
   };
 
-  const drawerList = (
-    <List>
-      <TextField
-        label="API Key"
-        variant="outlined"
-        value={apiKey}
-        onChange={handleApiKeyChange}
-        fullWidth
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={showThoughts}
-            onChange={() => setShowThoughts(!showThoughts)}
-          />
-        }
-        label="Show Thoughts"
-      />
-    </List>
-  );
+const drawerList = (
+  <List>
+    <FormControl fullWidth sx={{ mb: 2 }}>
+      <InputLabel>Model</InputLabel>
+      <Select
+        value={selectedModel}
+        label="Model"
+        onChange={(e) => setSelectedModel(e.target.value)}
+      >
+        <MenuItem value="anthropic.claude-3-haiku-20240229-v1:0">Claude 3 Haiku</MenuItem>
+        <MenuItem value="anthropic.claude-3-sonnet-20240229-v1:0">Claude 3 Sonnet</MenuItem>
+        <MenuItem value="anthropic.claude-3-opus-20240229-v1:0">Claude 3 Opus</MenuItem>
+      </Select>
+    </FormControl>
+    <TextField
+      label="API Key"
+      variant="outlined"
+      value={apiKey}
+      onChange={handleApiKeyChange}
+      fullWidth
+    />
+    <FormControlLabel
+      control={
+        <Switch
+          checked={showThoughts}
+          onChange={() => setShowThoughts(!showThoughts)}
+        />
+      }
+      label="Show Thoughts"
+    />
+  </List>
+);
 
   const handleAuthentication = () => {
     setAuthenticated(true);
@@ -262,7 +279,7 @@ function HomePage() {
     }
   }
 
-  async function getReply(message = "", isReview = false) {
+  async function getReply(message = "") {
     setThoughts([]); // Clear previous thoughts
     setInputDisabled(true);
 
@@ -273,8 +290,8 @@ function HomePage() {
 
       const agentOutput = await chat.getResponse(
         message,
+        selectedModel,
         thoughtCallback,
-        isReview
       );
 
       let finalMessage = agentOutput.reply;
@@ -360,7 +377,7 @@ function HomePage() {
               </IconButton>
               <img
                 src={process.env.PUBLIC_URL + "/aws_logo.png"}
-                alt="AWS logo"
+                alt=" "
                 className="logo"
                 style={{ height: "30px", marginRight: "10px" }}
               />
