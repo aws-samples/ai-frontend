@@ -1,11 +1,15 @@
-## My Project
+# Frontend for AI telecoms prototypes
 
-TODO: Fill this README out!
+## Deployment
+### Running locally
+1. Run  `cp template.env .env` to create your own `.env` file using the template.
+1. Fill out the environment variables in `.env`
+1. run `npm run start`
 
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
+### To AWS
+1. Run  `cp template.env .env` to create your own `.env` file using the template.
+1. Fill out the environment variables in `.env`
+1. Run `./deploy.sh`
 
 ## Security
 
