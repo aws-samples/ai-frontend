@@ -2,7 +2,7 @@ import "./HomePage.css";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
 import { Chat } from "./Chat";
-import { listUserIds } from "./Chat";
+import { listUserIds, getDocumentTypeCounts } from "./UserData";
 import {
   AppBar,
   Toolbar,
@@ -15,6 +15,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Button,
+  Box,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 
@@ -183,12 +185,14 @@ function HomePage() {
   const [inputDisabled, setInputDisabled] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [showThoughts, setShowThoughts] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [apiKey, setApiKey] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chat] = useState(() => new Chat());
   const [userMap, setUserMap] = useState({});
   const [isUsersLoading, setIsUsersLoading] = useState(true);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [userData, setUserData] = useState(null);
   const [selectedModel, setSelectedModel] = useState(
     "anthropic.claude-3-sonnet-20240229-v1:0"
   );
@@ -204,8 +208,9 @@ function HomePage() {
   useEffect(() => {
     const fetchAndMapUsers = async () => {
       try {
-        const userIds = [0,1,2,3,4]//,await listUserIds();
-        const mappedUsers = userIds.slice(0, 5).reduce(
+        const userIds = await listUserIds();
+        console.log("userIds:", userIds);
+        const mappedUsers = userIds.reduce(
           (acc, id, index) => ({
             ...acc,
             [USER_NAMES[index]]: id,
@@ -214,6 +219,7 @@ function HomePage() {
         );
         setUserMap(mappedUsers);
         setIsUsersLoading(false);
+        console.log("userMap:", userMap);
       } catch (error) {
         console.error("Failed to fetch users:", error);
         setIsUsersLoading(false);
@@ -222,6 +228,25 @@ function HomePage() {
 
     fetchAndMapUsers();
   }, []);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (selectedUser) {
+        try {
+          const docCounts = await getDocumentTypeCounts(selectedUser);
+          setUserData(docCounts);
+          console.log("User document counts:", docCounts);
+        } catch (error) {
+          console.error("Failed to fetch document counts:", error);
+          setUserData(null);
+        }
+      } else {
+        setUserData(null);
+      }
+    };
+
+    fetchUserData();
+  }, [selectedUser]);
 
   const toggleDrawer = (open) => (event) => {
     if (
@@ -238,7 +263,17 @@ function HomePage() {
   };
 
   const drawerList = (
-    <List>
+    <List sx={{ p: 2 }}>
+      {/* API key input. */}
+      <TextField
+        sx={{ mb: 2 }}
+        label="API key"
+        variant="outlined"
+        value={apiKey}
+        onChange={handleApiKeyChange}
+        fullWidth
+      />
+      {/* Model selection. */}
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Model</InputLabel>
         <Select
@@ -257,7 +292,7 @@ function HomePage() {
           </MenuItem>
         </Select>
       </FormControl>
-
+      {/* User selection. */}
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>User</InputLabel>
         <Select
@@ -273,14 +308,60 @@ function HomePage() {
           ))}
         </Select>
       </FormControl>
+      {/* User learning style. */}
+      {selectedUser !== null && (
+        <Box
+          sx={{
+            mb: 3,
+            p: 2,
+            bgcolor: "background.paper",
+            borderRadius: 1,
+          }}
+        >
+          <Typography variant="body1" sx={{ mb: 2, px: 2 }}>
+            Preferred learning style:{" "}
+            {selectedUser < 3
+              ? "Provide technical explanation"
+              : "Provide examples"}
+          </Typography>
 
-      <TextField
-        label="API key"
-        variant="outlined"
-        value={apiKey}
-        onChange={handleApiKeyChange}
-        fullWidth
-      />
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              mt: 1,
+            }}
+          >
+            <Button
+              onClick={() => setShowExplanation(!showExplanation)}
+              sx={{
+                p: 0,
+                minWidth: "auto",
+                fontSize: "0.75rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "text.secondary",
+              }}
+            >
+              explain why
+            </Button>
+
+            {showExplanation && (
+              <Typography
+                variant="caption"
+                sx={{
+                  mt: 1,
+                  color: "text.secondary",
+                  alignSelf: "stretch",
+                }}
+              >
+                Explanation goes here
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
     </List>
   );
 
@@ -301,10 +382,7 @@ function HomePage() {
     setInputDisabled(true);
 
     try {
-      const agentOutput = await chat.getResponse(
-        message,
-        selectedModel
-      );
+      const agentOutput = await chat.getResponse(message, selectedModel);
 
       let finalMessage = agentOutput.reply;
       if (agentOutput.sources && agentOutput.sources.length > 0) {
