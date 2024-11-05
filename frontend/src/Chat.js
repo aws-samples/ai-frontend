@@ -100,7 +100,7 @@ export class Chat {
     }
   }
 
-  async getResponse(message, model, thoughtCallback = null) {
+  async getResponse(message, model) {
     try {
       const result = await this.post(message, model);
 

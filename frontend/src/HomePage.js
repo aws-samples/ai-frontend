@@ -2,9 +2,8 @@ import "./HomePage.css";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
 import { Chat } from "./Chat";
+import { listUserIds } from "./Chat";
 import {
-  Switch,
-  FormControlLabel,
   AppBar,
   Toolbar,
   IconButton,
@@ -15,34 +14,11 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 
-class Thought {
-  constructor(o) {
-    this.type = o.type;
-    try {
-      if (o.type === "modelInvocationInput") {
-        this.text = JSON.parse(o.data).messages.map(
-          (message) => message.content
-        )[0];
-      } else if (o.type === "rationale") {
-        this.text = o.data;
-      } else if (o.type === "observation") {
-        this.text = JSON.parse(o.data).response[0];
-      } else if (o.type === "content") {
-        this.text = o.data;
-      }
-      if (!this.text) {
-        console.log(`Failed to type-cast thought: ${JSON.stringify(o)}`);
-      }
-      console.log("thought", this.text);
-    } catch (e) {
-      console.log(`Failed to type-cast thought: ${JSON.stringify(o)}`);
-    }
-  }
-}
+const USER_NAMES = ["Andrew", "Brad", "Christine", "Daniel", "Emma"];
 
 function UploadModal({ isOpen, onClose, onUpload }) {
   const [file, setFile] = useState(null);
@@ -207,10 +183,15 @@ function HomePage() {
   const [inputDisabled, setInputDisabled] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [showThoughts, setShowThoughts] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chat] = useState(() => new Chat());
-  const [selectedModel, setSelectedModel] = useState("anthropic.claude-3-sonnet-20240229-v1:0");
+  const [userMap, setUserMap] = useState({});
+  const [isUsersLoading, setIsUsersLoading] = useState(true);
+  const [selectedModel, setSelectedModel] = useState(
+    "anthropic.claude-3-sonnet-20240229-v1:0"
+  );
 
   useEffect(() => {
     chat.setApiKey(apiKey || "");
@@ -219,6 +200,28 @@ function HomePage() {
   useEffect(() => {
     setInputDisabled(messages.length % 2 === 1);
   }, [messages]);
+
+  useEffect(() => {
+    const fetchAndMapUsers = async () => {
+      try {
+        const userIds = [0,1,2,3,4]//,await listUserIds();
+        const mappedUsers = userIds.slice(0, 5).reduce(
+          (acc, id, index) => ({
+            ...acc,
+            [USER_NAMES[index]]: id,
+          }),
+          {}
+        );
+        setUserMap(mappedUsers);
+        setIsUsersLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+        setIsUsersLoading(false);
+      }
+    };
+
+    fetchAndMapUsers();
+  }, []);
 
   const toggleDrawer = (open) => (event) => {
     if (
@@ -234,38 +237,52 @@ function HomePage() {
     setApiKey(event.target.value);
   };
 
-const drawerList = (
-  <List>
-    <FormControl fullWidth sx={{ mb: 2 }}>
-      <InputLabel>Model</InputLabel>
-      <Select
-        value={selectedModel}
-        label="Model"
-        onChange={(e) => setSelectedModel(e.target.value)}
-      >
-        <MenuItem value="anthropic.claude-3-haiku-20240229-v1:0">Claude 3 Haiku</MenuItem>
-        <MenuItem value="anthropic.claude-3-sonnet-20240229-v1:0">Claude 3 Sonnet</MenuItem>
-        <MenuItem value="anthropic.claude-3-opus-20240229-v1:0">Claude 3 Opus</MenuItem>
-      </Select>
-    </FormControl>
-    <TextField
-      label="API Key"
-      variant="outlined"
-      value={apiKey}
-      onChange={handleApiKeyChange}
-      fullWidth
-    />
-    <FormControlLabel
-      control={
-        <Switch
-          checked={showThoughts}
-          onChange={() => setShowThoughts(!showThoughts)}
-        />
-      }
-      label="Show Thoughts"
-    />
-  </List>
-);
+  const drawerList = (
+    <List>
+      <FormControl fullWidth sx={{ mb: 2 }}>
+        <InputLabel>Model</InputLabel>
+        <Select
+          value={selectedModel}
+          label="Model"
+          onChange={(e) => setSelectedModel(e.target.value)}
+        >
+          <MenuItem value="anthropic.claude-3-haiku-20240229-v1:0">
+            Claude 3 Haiku
+          </MenuItem>
+          <MenuItem value="anthropic.claude-3-sonnet-20240229-v1:0">
+            Claude 3 Sonnet
+          </MenuItem>
+          <MenuItem value="anthropic.claude-3-opus-20240229-v1:0">
+            Claude 3 Opus
+          </MenuItem>
+        </Select>
+      </FormControl>
+
+      <FormControl fullWidth sx={{ mb: 2 }}>
+        <InputLabel>User</InputLabel>
+        <Select
+          value={selectedUser}
+          label="User"
+          onChange={(e) => setSelectedUser(e.target.value)}
+          disabled={isUsersLoading}
+        >
+          {Object.keys(userMap).map((name) => (
+            <MenuItem key={userMap[name]} value={userMap[name]}>
+              {name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <TextField
+        label="API key"
+        variant="outlined"
+        value={apiKey}
+        onChange={handleApiKeyChange}
+        fullWidth
+      />
+    </List>
+  );
 
   const handleAuthentication = () => {
     setAuthenticated(true);
@@ -284,14 +301,9 @@ const drawerList = (
     setInputDisabled(true);
 
     try {
-      const thoughtCallback = (thought) => {
-        setThoughts((prevThoughts) => [...prevThoughts, new Thought(thought)]);
-      };
-
       const agentOutput = await chat.getResponse(
         message,
-        selectedModel,
-        thoughtCallback,
+        selectedModel
       );
 
       let finalMessage = agentOutput.reply;
