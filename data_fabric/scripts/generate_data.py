@@ -63,7 +63,7 @@ def main():
 
     data.sort(key=lambda x: x['timestamp'])
 
-    OUTPUT_FILE = './data/user_learning_data.csv'
+    OUTPUT_FILE = '../cdk/assets/user_learning_data.csv'
     with open(OUTPUT_FILE, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['user_id', 'timestamp', 'document_id', 'document_type'])
         writer.writeheader()
