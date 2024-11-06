@@ -1,15 +1,15 @@
 import { Athena } from "aws-sdk";
 
-const DB_NAME = "data-fabric_db";
-const TABLE_NAME = "data-fabric_data";
-const S3_OUTPUT_BUCKET = process.env.S3_OUTPUT_BUCKET
+const DB_NAME = process.env.DB_NAME;
+const TABLE_NAME = process.env.TABLE_NAME;
+const S3_OUTPUT_BUCKET = process.env.S3_OUTPUT_BUCKET;
 
 async function executeQuery(query, mapper) {
   const athena = new Athena();
   const { QueryExecutionId } = await athena
     .startQueryExecution({
       QueryString,
-      QueryExecutionContext: { Database: "data-fabric_db" },
+      QueryExecutionContext: { Database: DB_NAME },
       ResultConfiguration: { OutputLocation: S3_OUTPUT_BUCKET },
     })
     .promise();
@@ -34,7 +34,7 @@ async function executeQuery(query, mapper) {
 export function getDocumentTypeCounts(userId) {
   executeQuery(
     `SELECT document_type, COUNT(document_type) as count
-     FROM "data-fabric_db"."data-fabric_data"
+     FROM "${DB_NAME}"."${TABLE_NAME}"
      WHERE user_id = '${userId}'
      GROUP BY document_type`,
     S3_OUTPUT_BUCKET,
@@ -48,7 +48,7 @@ export function getDocumentTypeCounts(userId) {
 
 export function listUserIds() {
   executeQuery(
-    `SELECT DISTINCT user_id FROM "data-fabric_db"."data-fabric_data"`,
+    `SELECT DISTINCT user_id FROM "${DB_NAME}"."${TABLE_NAME}"`,
     S3_OUTPUT_BUCKET,
     (rows) => rows.map((row) => row.Data[0].VarCharValue)
   );

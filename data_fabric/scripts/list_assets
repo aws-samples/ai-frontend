@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 <host> <principal_arn> <api_key>"
+    exit 1
+fi
+
+host=$1
+principal_arn=$2
+api_key=$3
+
+curl -X GET "${host}list-assets?principal_arn=${principal_arn}" \
+     -H "x-api-key: ${api_key}"

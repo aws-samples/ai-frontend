@@ -1,0 +1,45 @@
+#!/bin/bash
+set -o pipefail  # Safer pipeline error handling
+
+cleanup() {
+    # Reset terminal if something goes wrong
+    stty echo 2>/dev/null
+    echo -e "\n"
+    exit 1
+}
+
+trap cleanup INT TERM ERR  # Handle interrupts and errors
+
+if [ "$#" -ne 4 ]; then
+    echo "Usage: $0 <host> <principal_arn> <api_key> <s3_uri>"
+    exit 1
+fi
+
+host=$1
+principal_arn=$2
+api_key=$3
+s3_uri=$4
+
+# Quick validation with safe error handling
+{
+    [[ ! $host =~ ^https?:// ]] && host="https://$host"
+    [[ $host != */ ]] && host="$host/"
+    [[ ! $principal_arn =~ ^arn:aws:iam ]] && echo "Invalid ARN format" && exit 1
+    [[ ! $s3_uri =~ ^s3:// ]] && echo "Invalid S3 URI format" && exit 1
+    [[ ! $api_key =~ ^[A-Za-z0-9+/=]{32,}$ ]] && echo "Invalid API key format" && exit 1
+} 2>/dev/null || {
+    echo "Validation error occurred"
+    exit 1
+}
+
+# Safe curl execution with timeout and error handling
+curl --connect-timeout 10 \
+     --max-time 30 \
+     -X POST "${host}request-permission" \
+     -H "Content-Type: application/json" \
+     -H "x-api-key: ${api_key}" \
+     -d "{\"principal_arn\": \"${principal_arn}\", \"s3_uri\": \"${s3_uri}\"}" \
+     || {
+         echo "API request failed"
+         exit 1
+     }
