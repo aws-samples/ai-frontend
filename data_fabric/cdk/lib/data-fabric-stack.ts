@@ -45,12 +45,9 @@ export class DataFabricStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    require("child_process").execSync(
-      "python3.11 ../scripts/generate_data.py",
-      {
-        stdio: "inherit",
-      }
-    );
+    require("child_process").execSync("python ../scripts/generate_data.py", {
+      stdio: "inherit",
+    });
 
     const deployment = new s3deploy.BucketDeployment(this, "DeployFiles", {
       sources: [s3deploy.Source.asset(path.join(__dirname, "..", "assets"))],
