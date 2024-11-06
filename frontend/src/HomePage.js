@@ -27,9 +27,19 @@ function PdfViewer({ filePath }) {
 
   useEffect(() => {
     if (filePath) {
+      // Create URL for display
       const fileUrl = URL.createObjectURL(filePath);
       setUrl(fileUrl);
 
+      // Extract text
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const text = e.target.result;
+        console.log("PDF text content:", text);
+      };
+      reader.readAsText(filePath);
+
+      // Cleanup URL
       return () => URL.revokeObjectURL(fileUrl);
     }
   }, [filePath]);
@@ -204,7 +214,9 @@ function HomePage() {
   const [inputDisabled, setInputDisabled] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [messages, setMessages] = useState([]);
-  const [selectedModel, setSelectedModel] = useState("anthropic.claude-3-sonnet-20240229-v1:0");
+  const [selectedModel, setSelectedModel] = useState(
+    "anthropic.claude-3-sonnet-20240229-v1:0"
+  );
   const [selectedUser, setSelectedUser] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [showThoughts, setShowThoughts] = useState(false);
@@ -250,12 +262,17 @@ function HomePage() {
     const fetchUserData = async () => {
       if (selectedUser) {
         try {
-          const docCounts = await userDataClient.getDocumentTypeCounts(selectedUser);
+          const docCounts =
+            await userDataClient.getDocumentTypeCounts(selectedUser);
           setUserData(docCounts);
           console.log("User document counts:", docCounts);
 
-          const explanation = await userDataClient.explainCustomization(selectedUser, docCounts, selectedModel)
-          setUserData(explanation.reply)
+          const explanation = await userDataClient.explainCustomization(
+            selectedUser,
+            docCounts,
+            selectedModel
+          );
+          setUserData(explanation.reply);
         } catch (error) {
           console.error("Failed to fetch document counts:", error);
           setUserData(null);
@@ -427,7 +444,7 @@ function HomePage() {
   async function handleFileUpload(file) {
     try {
       setPdfPath(file);
-      console.log("file:", file)
+      console.log("file:", file);
     } catch (error) {
       console.error("Error uploading file:", error);
       // TODO: Come up with a sensible error behavior.
@@ -485,7 +502,7 @@ function HomePage() {
             {drawerList}
           </Drawer>
           <div className="main-section">
-            <div className={`left ${pdfPath ? 'with-preview' : ''}`}>
+            <div className={`left ${pdfPath ? "with-preview" : ""}`}>
               <ChatContainer messages={messages} />
               <InputForm
                 inputDisabled={inputDisabled}
