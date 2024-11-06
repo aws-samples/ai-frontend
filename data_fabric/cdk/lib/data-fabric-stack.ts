@@ -84,6 +84,21 @@ export class DataFabricStack extends cdk.Stack {
       },
     });
 
+    const csvClassifier = new glue.CfnClassifier(
+      this,
+      "DocumentsCSVClassifier",
+      {
+        csvClassifier: {
+          name: "documents-csv-classifier",
+          delimiter: ",",
+          containsHeader: "PRESENT",
+          header: ["user_id", "timestamp", "document_id", "document_type"],
+          disableValueTrimming: false,
+          allowSingleColumn: false,
+        },
+      }
+    );
+
     const crawler = new glue.CfnCrawler(this, "TestGlueCrawler", {
       name: `test-crawler-${this.account}`,
       role: crawlerRole.roleArn,
@@ -98,6 +113,7 @@ export class DataFabricStack extends cdk.Stack {
       schedule: {
         scheduleExpression: "cron(0/15 * * * ? *)",
       },
+      classifiers: [csvClassifier.ref],
     });
     crawler.applyRemovalPolicy(RemovalPolicy.DESTROY);
 
