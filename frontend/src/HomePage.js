@@ -2,7 +2,7 @@ import "./HomePage.css";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
 import { Chat } from "./Chat";
-import { listUserIds, getDocumentTypeCounts } from "./UserData";
+import { UserDataClient } from "./UserData";
 import {
   AppBar,
   Toolbar,
@@ -197,6 +197,8 @@ function HomePage() {
     "anthropic.claude-3-sonnet-20240229-v1:0"
   );
 
+  const userDataClient = new UserDataClient(chat);
+
   useEffect(() => {
     chat.setApiKey(apiKey || "");
   }, [apiKey, chat]);
@@ -208,7 +210,7 @@ function HomePage() {
   useEffect(() => {
     const fetchAndMapUsers = async () => {
       try {
-        const userIds = await listUserIds();
+        const userIds = await userDataClient.listUserIds();
         console.log("userIds:", userIds);
         const mappedUsers = userIds.reduce(
           (acc, id, index) => ({
@@ -233,9 +235,12 @@ function HomePage() {
     const fetchUserData = async () => {
       if (selectedUser) {
         try {
-          const docCounts = await getDocumentTypeCounts(selectedUser);
+          const docCounts = await userDataClient.getDocumentTypeCounts(selectedUser);
           setUserData(docCounts);
           console.log("User document counts:", docCounts);
+
+          const explanation = await userDataClient.explainCustomization(selectedUser, docCounts, selectedModel)
+          setUserData(explanation.reply)
         } catch (error) {
           console.error("Failed to fetch document counts:", error);
           setUserData(null);
@@ -356,7 +361,7 @@ function HomePage() {
                   alignSelf: "stretch",
                 }}
               >
-                Explanation goes here
+                {JSON.stringify(userData, null, 2)}
               </Typography>
             )}
           </Box>
