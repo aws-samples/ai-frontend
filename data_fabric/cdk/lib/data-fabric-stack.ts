@@ -16,20 +16,25 @@ import {
   Role,
   ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
+import * as cr from "aws-cdk-lib/custom-resources";
 
 export class DataFabricStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const ADMIN_ROLE_ARN = "arn:aws:iam::670015436176:role/Admin";
+    const ADMIN_ROLE_ARN = `arn:aws:iam::${this.account}:role/cdk-hnb659fds-cfn-exec-role-${this.account}-${this.region}`;
 
-    new lakeformation.CfnDataLakeSettings(this, "DataLakeSettings", {
-      admins: [
-        {
-          dataLakePrincipalIdentifier: ADMIN_ROLE_ARN,
-        },
-      ],
-    });
+    const adminSetup = new lakeformation.CfnDataLakeSettings(
+      this,
+      "DataLakeSettings",
+      {
+        admins: [
+          {
+            dataLakePrincipalIdentifier: ADMIN_ROLE_ARN,
+          },
+        ],
+      }
+    );
 
     // Create S3 bucket for Lake Formation
     const dataBucket = new s3.Bucket(this, "DataLakeBucket", {
@@ -47,7 +52,7 @@ export class DataFabricStack extends cdk.Stack {
       }
     );
 
-    new s3deploy.BucketDeployment(this, "DeployFiles", {
+    const deployment = new s3deploy.BucketDeployment(this, "DeployFiles", {
       sources: [s3deploy.Source.asset(path.join(__dirname, "..", "assets"))],
       destinationBucket: dataBucket,
     });
@@ -111,11 +116,14 @@ export class DataFabricStack extends cdk.Stack {
         ],
       },
       schedule: {
-        scheduleExpression: "cron(0/15 * * * ? *)",
+        scheduleExpression: "cron(0 * * * ? *)",
       },
       classifiers: [csvClassifier.ref],
     });
     crawler.applyRemovalPolicy(RemovalPolicy.DESTROY);
+
+    // L1 crawler construct does not expose arn so we construct it like this
+    const crawlerArn = `arn:aws:glue:${this.region}:${this.account}:crawler/${crawler.ref}`;
 
     // Register the S3 bucket as a Lake Formation data lake location
     const lakeFormationResource = new lakeformation.CfnResource(
@@ -128,32 +136,43 @@ export class DataFabricStack extends cdk.Stack {
     );
 
     database.node.addDependency(lakeFormationResource);
+    lakeFormationResource.node.addDependency(adminSetup);
 
     // Grant Lake Formation permissions to the crawler role
-    new lakeformation.CfnPermissions(this, "CrawlerDatabasePermissions", {
-      dataLakePrincipal: {
-        dataLakePrincipalIdentifier: crawlerRole.roleArn,
-      },
-      resource: {
-        databaseResource: {
-          name: database.ref,
+    const CrawlerDBPerms = new lakeformation.CfnPermissions(
+      this,
+      "CrawlerDatabasePermissions",
+      {
+        dataLakePrincipal: {
+          dataLakePrincipalIdentifier: crawlerRole.roleArn,
         },
-      },
-      permissions: ["CREATE_TABLE", "ALTER", "DROP"],
-    });
+        resource: {
+          databaseResource: {
+            name: database.ref,
+          },
+        },
+        permissions: ["CREATE_TABLE", "ALTER", "DROP"],
+      }
+    );
+    CrawlerDBPerms.node.addDependency(adminSetup);
 
     // Grant Lake Formation permissions for the S3 location to the crawler
-    new lakeformation.CfnPermissions(this, "CrawlerS3Permissions", {
-      dataLakePrincipal: {
-        dataLakePrincipalIdentifier: crawlerRole.roleArn,
-      },
-      resource: {
-        dataLocationResource: {
-          s3Resource: dataBucket.bucketArn + "/*",
+    const CrawlerS3Perms = new lakeformation.CfnPermissions(
+      this,
+      "CrawlerS3Permissions",
+      {
+        dataLakePrincipal: {
+          dataLakePrincipalIdentifier: crawlerRole.roleArn,
         },
-      },
-      permissions: ["DATA_LOCATION_ACCESS"],
-    });
+        resource: {
+          dataLocationResource: {
+            s3Resource: dataBucket.bucketArn + "/*",
+          },
+        },
+        permissions: ["DATA_LOCATION_ACCESS"],
+      }
+    );
+    CrawlerS3Perms.node.addDependency(adminSetup);
 
     // Rest of your stack remains the same...
     // Create Lambda execution role
@@ -223,41 +242,91 @@ export class DataFabricStack extends cdk.Stack {
       },
     });
 
-    new lakeformation.CfnDataLakeSettings(this, "LambdaDataLakeSettings", {
-      admins: [
-        {
-          dataLakePrincipalIdentifier: lambdaRole.roleArn,
-        },
-      ],
-    });
+    const LambdaLakeAdmin = new lakeformation.CfnDataLakeSettings(
+      this,
+      "LambdaDataLakeSettings",
+      {
+        admins: [
+          {
+            dataLakePrincipalIdentifier: lambdaRole.roleArn,
+          },
+        ],
+      }
+    );
+    LambdaLakeAdmin.node.addDependency(adminSetup);
 
     // Give the lambda full access to the glue database
-    new lakeformation.CfnPermissions(this, "LambdaTablePermissions", {
-      dataLakePrincipal: {
-        dataLakePrincipalIdentifier: lambdaRole.roleArn,
-      },
-      resource: {
-        tableResource: {
-          databaseName: database.ref,
-          tableWildcard: {},
+    const LambdaTablePerms = new lakeformation.CfnPermissions(
+      this,
+      "LambdaTablePermissions",
+      {
+        dataLakePrincipal: {
+          dataLakePrincipalIdentifier: lambdaRole.roleArn,
         },
-      },
-      permissions: ["ALL"],
-    });
+        resource: {
+          tableResource: {
+            databaseName: database.ref,
+            tableWildcard: {},
+          },
+        },
+        permissions: ["ALL"],
+      }
+    );
+    LambdaTablePerms.node.addDependency(adminSetup);
 
-    new lakeformation.CfnPermissions(this, "LambdaDBPermissions", {
-      dataLakePrincipal: {
-        dataLakePrincipalIdentifier: lambdaRole.roleArn,
-      },
-      resource: {
-        databaseResource: {
-          name: database.ref,
+    const LambdaDbPerms = new lakeformation.CfnPermissions(
+      this,
+      "LambdaDBPermissions",
+      {
+        dataLakePrincipal: {
+          dataLakePrincipalIdentifier: lambdaRole.roleArn,
         },
-      },
-      permissions: ["ALL"],
-    });
+        resource: {
+          databaseResource: {
+            name: database.ref,
+          },
+        },
+        permissions: ["ALL"],
+      }
+    );
+    LambdaDbPerms.node.addDependency(adminSetup);
 
     const { apiKey, apiUrl } = this.createApiGateway(adminLambda);
+
+    const startCrawlerFn = new lambda.Function(this, "StartCrawlerFunction", {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: "trigger_glue.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda")),
+      environment: {
+        GLUE_CRAWLER_NAME: crawler.ref,
+      },
+      timeout: cdk.Duration.seconds(10),
+    });
+
+    startCrawlerFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["glue:StartCrawler"],
+        resources: [crawlerArn],
+      })
+    );
+
+    const crawlerTriggerProvider = new cr.Provider(this, "CrawlerTrigger", {
+      onEventHandler: startCrawlerFn,
+    });
+
+    const triggerCrawlerResource = new cdk.CustomResource(
+      this,
+      "TriggerCrawlerResource",
+      {
+        serviceToken: crawlerTriggerProvider.serviceToken,
+        properties: {
+          triggerTimestamp: new Date().toISOString(),
+        },
+      }
+    );
+
+    triggerCrawlerResource.node.addDependency(crawler);
+    triggerCrawlerResource.node.addDependency(deployment);
 
     new cdk.CfnOutput(this, "ApiUrl", {
       value: apiUrl,
