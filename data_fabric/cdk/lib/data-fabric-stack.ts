@@ -45,7 +45,7 @@ export class DataFabricStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    require("child_process").execSync("python ../scripts/generate_data.py", {
+    require("child_process").execSync("python3 ../scripts/generate_data.py", {
       stdio: "inherit",
     });
 
@@ -297,7 +297,7 @@ export class DataFabricStack extends cdk.Stack {
       environment: {
         GLUE_CRAWLER_NAME: crawler.ref,
       },
-      timeout: cdk.Duration.seconds(10),
+      timeout: cdk.Duration.seconds(180),
     });
 
     startCrawlerFn.addToRolePolicy(
