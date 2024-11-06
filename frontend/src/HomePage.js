@@ -22,6 +22,34 @@ import MenuIcon from "@mui/icons-material/Menu";
 
 const USER_NAMES = ["Andrew", "Brad", "Christine", "Daniel", "Emma"];
 
+function PdfViewer({ filePath }) {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (filePath) {
+      const fileUrl = URL.createObjectURL(filePath);
+      setUrl(fileUrl);
+
+      return () => URL.revokeObjectURL(fileUrl);
+    }
+  }, [filePath]);
+
+  if (!filePath) return null;
+
+  return (
+    <div className="pdf-viewer">
+      <h2 className="section-header">File Preview</h2>
+      <embed
+        src={url}
+        type="application/pdf"
+        width="100%"
+        height="100%"
+        style={{ border: "none" }}
+      />
+    </div>
+  );
+}
+
 function UploadModal({ isOpen, onClose, onUpload }) {
   const [file, setFile] = useState(null);
   const [provideAnalysis, setProvideAnalysis] = useState(false);
@@ -49,17 +77,6 @@ function UploadModal({ isOpen, onClose, onUpload }) {
         <h2>Upload File</h2>
         <form onSubmit={handleSubmit}>
           <input type="file" onChange={handleFileChange} />
-          <div>
-            <input
-              type="checkbox"
-              id="provideAnalysis"
-              checked={provideAnalysis}
-              onChange={handleCheckboxChange}
-            />
-            <label htmlFor="provideAnalysis" onClick={handleCheckboxChange}>
-              Analyze conformance
-            </label>
-          </div>
           <button type="submit" disabled={!file}>
             Upload
           </button>
@@ -136,11 +153,11 @@ class InputForm extends React.Component {
 
   handleFileUpload = async (file, provideAnalysis) => {
     try {
-      await this.props.onFileUpload(file, provideAnalysis);
+      await this.props.onFileUpload(file);
       this.handleCloseModal();
     } catch (error) {
       console.error("Error uploading file:", error);
-      // Handle error (e.g., show an error message to the user)
+      // TODO: Reasonable error handling.
     }
   };
 
@@ -163,7 +180,7 @@ class InputForm extends React.Component {
             ⏩ Send
           </button>
           <button type="button" onClick={this.handleOpenModal}>
-            📎 Attach
+            📎 Attach PDF
           </button>
           <button type="button" onClick={onDownload}>
             💾 Download Chat
@@ -180,22 +197,21 @@ class InputForm extends React.Component {
 }
 
 function HomePage() {
-  const [messages, setMessages] = useState([]);
-  const [thoughts, setThoughts] = useState([]);
-  const [inputDisabled, setInputDisabled] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [showThoughts, setShowThoughts] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [apiKey, setApiKey] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [chat] = useState(() => new Chat());
-  const [userMap, setUserMap] = useState({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [inputDisabled, setInputDisabled] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
+  const [messages, setMessages] = useState([]);
+  const [selectedModel, setSelectedModel] = useState("anthropic.claude-3-sonnet-20240229-v1:0");
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showThoughts, setShowThoughts] = useState(false);
+  const [thoughts, setThoughts] = useState([]);
+  const [pdfPath, setPdfPath] = useState(null);
   const [userData, setUserData] = useState(null);
-  const [selectedModel, setSelectedModel] = useState(
-    "anthropic.claude-3-sonnet-20240229-v1:0"
-  );
+  const [userMap, setUserMap] = useState({});
 
   const userDataClient = new UserDataClient(chat);
 
@@ -211,7 +227,6 @@ function HomePage() {
     const fetchAndMapUsers = async () => {
       try {
         const userIds = await userDataClient.listUserIds();
-        console.log("userIds:", userIds);
         const mappedUsers = userIds.reduce(
           (acc, id, index) => ({
             ...acc,
@@ -409,28 +424,13 @@ function HomePage() {
     }
   }
 
-  async function handleFileUpload(file, provideAnalysis = false) {
+  async function handleFileUpload(file) {
     try {
-      const result = await chat.uploadFile(file);
-      console.log(result);
-
-      if (provideAnalysis) {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          `User uploaded file: "${file.name}"`,
-        ]);
-        getReply("", true);
-      } else {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          `User uploaded file: "${file.name}"`,
-          `File "${file.name}" uploaded successfully`,
-        ]);
-      }
-
-      setInputDisabled(false);
+      setPdfPath(file);
+      console.log("file:", file)
     } catch (error) {
       console.error("Error uploading file:", error);
+      // TODO: Come up with a sensible error behavior.
       setMessages((prevMessages) => [
         ...prevMessages,
         `Error uploading file: ${error.message}`,
@@ -485,7 +485,7 @@ function HomePage() {
             {drawerList}
           </Drawer>
           <div className="main-section">
-            <div className="left">
+            <div className={`left ${pdfPath ? 'with-preview' : ''}`}>
               <ChatContainer messages={messages} />
               <InputForm
                 inputDisabled={inputDisabled}
@@ -494,22 +494,9 @@ function HomePage() {
                 onDownload={handleDownload}
               />
             </div>
-            {showThoughts && (
+            {pdfPath && (
               <div className="right">
-                <h2 className="section-header">Trail of Thought</h2>
-                <div className="thoughts-container">
-                  <div className="thoughts">
-                    {thoughts.map((thought, index) => (
-                      <div key={index} className="message bot">
-                        <React.Fragment key={index}>
-                          {thought.text}
-                          <br />
-                        </React.Fragment>
-                      </div>
-                    ))}
-                    <div className="hacky-spacer" />
-                  </div>
-                </div>
+                <PdfViewer filePath={pdfPath} />
               </div>
             )}
           </div>
