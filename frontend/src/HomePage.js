@@ -2,7 +2,7 @@ import "./HomePage.css";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
 import { Chat } from "./Chat";
-import { listUserIds } from "./Chat";
+import { UserDataClient } from "./UserData";
 import {
   AppBar,
   Toolbar,
@@ -15,10 +15,50 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Button,
+  Box,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 
 const USER_NAMES = ["Andrew", "Brad", "Christine", "Daniel", "Emma"];
+
+function PdfViewer({ filePath }) {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (filePath) {
+      // Create URL for display
+      const fileUrl = URL.createObjectURL(filePath);
+      setUrl(fileUrl);
+
+      // Extract text
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const text = e.target.result;
+        console.log("PDF text content:", text);
+      };
+      reader.readAsText(filePath);
+
+      // Cleanup URL
+      return () => URL.revokeObjectURL(fileUrl);
+    }
+  }, [filePath]);
+
+  if (!filePath) return null;
+
+  return (
+    <div className="pdf-viewer">
+      <h2 className="section-header">File Preview</h2>
+      <embed
+        src={url}
+        type="application/pdf"
+        width="100%"
+        height="100%"
+        style={{ border: "none" }}
+      />
+    </div>
+  );
+}
 
 function UploadModal({ isOpen, onClose, onUpload }) {
   const [file, setFile] = useState(null);
@@ -47,17 +87,6 @@ function UploadModal({ isOpen, onClose, onUpload }) {
         <h2>Upload File</h2>
         <form onSubmit={handleSubmit}>
           <input type="file" onChange={handleFileChange} />
-          <div>
-            <input
-              type="checkbox"
-              id="provideAnalysis"
-              checked={provideAnalysis}
-              onChange={handleCheckboxChange}
-            />
-            <label htmlFor="provideAnalysis" onClick={handleCheckboxChange}>
-              Analyze conformance
-            </label>
-          </div>
           <button type="submit" disabled={!file}>
             Upload
           </button>
@@ -134,11 +163,11 @@ class InputForm extends React.Component {
 
   handleFileUpload = async (file, provideAnalysis) => {
     try {
-      await this.props.onFileUpload(file, provideAnalysis);
+      await this.props.onFileUpload(file);
       this.handleCloseModal();
     } catch (error) {
       console.error("Error uploading file:", error);
-      // Handle error (e.g., show an error message to the user)
+      // TODO: Reasonable error handling.
     }
   };
 
@@ -161,7 +190,7 @@ class InputForm extends React.Component {
             ⏩ Send
           </button>
           <button type="button" onClick={this.handleOpenModal}>
-            📎 Attach
+            📎 Attach PDF
           </button>
           <button type="button" onClick={onDownload}>
             💾 Download Chat
@@ -178,20 +207,25 @@ class InputForm extends React.Component {
 }
 
 function HomePage() {
-  const [messages, setMessages] = useState([]);
-  const [thoughts, setThoughts] = useState([]);
-  const [inputDisabled, setInputDisabled] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [showThoughts, setShowThoughts] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [chat] = useState(() => new Chat());
-  const [userMap, setUserMap] = useState({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [inputDisabled, setInputDisabled] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
+  const [messages, setMessages] = useState([]);
   const [selectedModel, setSelectedModel] = useState(
     "anthropic.claude-3-sonnet-20240229-v1:0"
   );
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [showThoughts, setShowThoughts] = useState(false);
+  const [thoughts, setThoughts] = useState([]);
+  const [pdfPath, setPdfPath] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [userMap, setUserMap] = useState({});
+
+  const userDataClient = new UserDataClient(chat);
 
   useEffect(() => {
     chat.setApiKey(apiKey || "");
@@ -204,8 +238,8 @@ function HomePage() {
   useEffect(() => {
     const fetchAndMapUsers = async () => {
       try {
-        const userIds = [0,1,2,3,4]//,await listUserIds();
-        const mappedUsers = userIds.slice(0, 5).reduce(
+        const userIds = await userDataClient.listUserIds();
+        const mappedUsers = userIds.reduce(
           (acc, id, index) => ({
             ...acc,
             [USER_NAMES[index]]: id,
@@ -214,6 +248,7 @@ function HomePage() {
         );
         setUserMap(mappedUsers);
         setIsUsersLoading(false);
+        console.log("userMap:", userMap);
       } catch (error) {
         console.error("Failed to fetch users:", error);
         setIsUsersLoading(false);
@@ -222,6 +257,33 @@ function HomePage() {
 
     fetchAndMapUsers();
   }, []);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (selectedUser) {
+        try {
+          const docCounts =
+            await userDataClient.getDocumentTypeCounts(selectedUser);
+          setUserData(docCounts);
+          console.log("User document counts:", docCounts);
+
+          const explanation = await userDataClient.explainCustomization(
+            selectedUser,
+            docCounts,
+            selectedModel
+          );
+          setUserData(explanation.reply);
+        } catch (error) {
+          console.error("Failed to fetch document counts:", error);
+          setUserData(null);
+        }
+      } else {
+        setUserData(null);
+      }
+    };
+
+    fetchUserData();
+  }, [selectedUser]);
 
   const toggleDrawer = (open) => (event) => {
     if (
@@ -238,7 +300,17 @@ function HomePage() {
   };
 
   const drawerList = (
-    <List>
+    <List sx={{ p: 2 }}>
+      {/* API key input. */}
+      <TextField
+        sx={{ mb: 2 }}
+        label="API key"
+        variant="outlined"
+        value={apiKey}
+        onChange={handleApiKeyChange}
+        fullWidth
+      />
+      {/* Model selection. */}
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Model</InputLabel>
         <Select
@@ -257,7 +329,7 @@ function HomePage() {
           </MenuItem>
         </Select>
       </FormControl>
-
+      {/* User selection. */}
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>User</InputLabel>
         <Select
@@ -273,14 +345,60 @@ function HomePage() {
           ))}
         </Select>
       </FormControl>
+      {/* User learning style. */}
+      {selectedUser !== null && (
+        <Box
+          sx={{
+            mb: 3,
+            p: 2,
+            bgcolor: "background.paper",
+            borderRadius: 1,
+          }}
+        >
+          <Typography variant="body1" sx={{ mb: 2, px: 2 }}>
+            Preferred learning style:{" "}
+            {selectedUser < 3
+              ? "Provide technical explanation"
+              : "Provide examples"}
+          </Typography>
 
-      <TextField
-        label="API key"
-        variant="outlined"
-        value={apiKey}
-        onChange={handleApiKeyChange}
-        fullWidth
-      />
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              mt: 1,
+            }}
+          >
+            <Button
+              onClick={() => setShowExplanation(!showExplanation)}
+              sx={{
+                p: 0,
+                minWidth: "auto",
+                fontSize: "0.75rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "text.secondary",
+              }}
+            >
+              explain why
+            </Button>
+
+            {showExplanation && (
+              <Typography
+                variant="caption"
+                sx={{
+                  mt: 1,
+                  color: "text.secondary",
+                  alignSelf: "stretch",
+                }}
+              >
+                {JSON.stringify(userData, null, 2)}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
     </List>
   );
 
@@ -301,10 +419,7 @@ function HomePage() {
     setInputDisabled(true);
 
     try {
-      const agentOutput = await chat.getResponse(
-        message,
-        selectedModel
-      );
+      const agentOutput = await chat.getResponse(message, selectedModel);
 
       let finalMessage = agentOutput.reply;
       if (agentOutput.sources && agentOutput.sources.length > 0) {
@@ -326,28 +441,13 @@ function HomePage() {
     }
   }
 
-  async function handleFileUpload(file, provideAnalysis = false) {
+  async function handleFileUpload(file) {
     try {
-      const result = await chat.uploadFile(file);
-      console.log(result);
-
-      if (provideAnalysis) {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          `User uploaded file: "${file.name}"`,
-        ]);
-        getReply("", true);
-      } else {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          `User uploaded file: "${file.name}"`,
-          `File "${file.name}" uploaded successfully`,
-        ]);
-      }
-
-      setInputDisabled(false);
+      setPdfPath(file);
+      console.log("file:", file);
     } catch (error) {
       console.error("Error uploading file:", error);
+      // TODO: Come up with a sensible error behavior.
       setMessages((prevMessages) => [
         ...prevMessages,
         `Error uploading file: ${error.message}`,
@@ -398,11 +498,20 @@ function HomePage() {
               </Typography>
             </Toolbar>
           </AppBar>
-          <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
+          <Drawer
+            anchor="left"
+            open={drawerOpen}
+            onClose={toggleDrawer(false)}
+            PaperProps={{
+              sx: {
+                width: "min(100%, 500px)",
+              },
+            }}
+          >
             {drawerList}
           </Drawer>
           <div className="main-section">
-            <div className="left">
+            <div className={`left ${pdfPath ? "with-preview" : ""}`}>
               <ChatContainer messages={messages} />
               <InputForm
                 inputDisabled={inputDisabled}
@@ -411,22 +520,9 @@ function HomePage() {
                 onDownload={handleDownload}
               />
             </div>
-            {showThoughts && (
+            {pdfPath && (
               <div className="right">
-                <h2 className="section-header">Trail of Thought</h2>
-                <div className="thoughts-container">
-                  <div className="thoughts">
-                    {thoughts.map((thought, index) => (
-                      <div key={index} className="message bot">
-                        <React.Fragment key={index}>
-                          {thought.text}
-                          <br />
-                        </React.Fragment>
-                      </div>
-                    ))}
-                    <div className="hacky-spacer" />
-                  </div>
-                </div>
+                <PdfViewer filePath={pdfPath} />
               </div>
             )}
           </div>

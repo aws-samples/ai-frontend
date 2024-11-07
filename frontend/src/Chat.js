@@ -2,10 +2,7 @@ import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
 
 // const LLM_GATEWAY_URL = `${process.env.REACT_APP_LLM_GATEWAY_URL}/api/v1`;
-const LLM_GATEWAY_URL = `https://api.ajuny.people.aws.dev/api/v1`;
-console.log(`LLM_GATEWAY_URL: ${LLM_GATEWAY_URL}`);
-
-// TODO: Load environment variables with "dotenv" equivalent.
+const LLM_GATEWAY_URL = process.env.REACT_APP_LLM_GATEWAY_URL
 
 export class AgentOutput {
   reply;
@@ -116,7 +113,7 @@ export class Chat {
     }
   }
 
-  async post(question, model) {
+  async post(prompt, model) {
     const chatId = await this.threadSafeSessionState.get("chat_id");
     if (chatId) {
       // ToDo: Restore chat_id functionality to support server side history
@@ -128,9 +125,10 @@ export class Chat {
 
     let fullResponse = "";
     try {
+      console.log(prompt, model)
       const stream = await this.client.chat.completions.create({
         model: model,
-        messages: [{ role: "user", content: question }],
+        messages: [{ role: "user", content: prompt }],
         max_tokens: 1000,
         temperature: 1,
         n: 1,
