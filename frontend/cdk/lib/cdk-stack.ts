@@ -8,23 +8,36 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 import * as path from "path";
 
+const DEPLOYMENT_PREFIX = process.env.DEPLOYMENT_PREFIX
+
 export class MainStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Create Lambda function before anything else.
+    // Create the textraction stack before anything else.
+    const pdfBucket = new s3.Bucket(this, "PdfBucket", {
+      bucketName: DEPLOYMENT_PREFIX + "pdf-storage",
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+    });
+
     const textractLambda = new lambda.Function(this, 'TextractFunction', {
-      runtime: lambda.Runtime.PYTHON_3_9,
+      runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'index.lambda_handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '..', 'lambdas', 'textract')),
-      timeout: cdk.Duration.minutes(15),
+      timeout: cdk.Duration.minutes(1),
       environment: {
         REGION: this.region,
-        BUCKET_NAME: process.env.DEPLOYMENT_PREFIX + "static-website"
+        BUCKET_NAME: pdfBucket.bucketName
       }
     });
 
-    // Add required permissions for Lambda
+    pdfBucket.grantRead(textractLambda);
+    pdfBucket.grantDelete(textractLambda);
+
     textractLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -36,7 +49,7 @@ export class MainStack extends cdk.Stack {
     );
 
     const accessLogsBucket = new s3.Bucket(this, "StaticReactWebsiteAccessLogsBucket", {
-      bucketName: process.env.DEPLOYMENT_PREFIX + "static-website-logs",
+      bucketName: DEPLOYMENT_PREFIX + "static-website-logs",
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
@@ -44,7 +57,7 @@ export class MainStack extends cdk.Stack {
     });
 
     const websiteBucket = new s3.Bucket(this, "StaticReactWebsiteBucket", {
-      bucketName: process.env.DEPLOYMENT_PREFIX + "static-website",
+      bucketName: DEPLOYMENT_PREFIX + "static-website",
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
