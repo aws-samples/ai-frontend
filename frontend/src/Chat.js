@@ -59,6 +59,7 @@ export class Chat {
   client;
   model = "anthropic.claude-3-sonnet-20240229-v1:0";
   threadSafeSessionState = new ThreadSafeSessionState();
+  documentText = null;
 
   refreshClient() {
     console.log(`Refreshing client with apiKey ${this.apiKey}`);
@@ -121,6 +122,11 @@ export class Chat {
       console.log(`found chat id ${chatId} in context`);
     } else {
       console.log("did not find chat id in context");
+    }
+
+    if (this.documentText) {
+      prompt = prompt + `\nThis document may help you: <document>${this.documentText}</document>`
+      console.log("Augmented prompt:", prompt)
     }
 
     let fullResponse = "";

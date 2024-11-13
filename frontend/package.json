@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@aws-sdk/client-athena": "^3.682.0",
+    "@aws-sdk/client-lambda": "^3.687.0",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^5.16.7",
@@ -12,6 +13,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "aws-sdk": "^2.1691.0",
+    "buffer": "^6.0.3",
     "mui": "^0.0.1",
     "openai": "^4.70.2",
     "react": "^18.3.1",

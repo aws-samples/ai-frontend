@@ -1,4 +1,5 @@
 import "./HomePage.css";
+import { Buffer } from "buffer";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
 import { Chat } from "./Chat";
@@ -19,8 +20,37 @@ import {
   Box,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 
 const USER_NAMES = ["Andrew", "Brad", "Christine", "Daniel", "Emma"];
+
+async function readPdf(pdfFile) {
+  const lambda = new LambdaClient({
+    region: process.env.REGION || "us-west-2",
+    credentials: {
+      accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+      sessionToken: process.env.REACT_APP_AWS_SESSION_TOKEN,
+    },
+  });
+
+  const buffer = await pdfFile.arrayBuffer();
+  const base64Content = Buffer.from(buffer).toString("base64");
+
+  const command = new InvokeCommand({
+    FunctionName: process.env.REACT_APP_PDF_FUNCTION_NAME || "",
+    Payload: JSON.stringify({ pdf_content: base64Content }),
+  });
+
+  const response = await lambda.send(command);
+  const payload = Buffer.from(response.Payload || "").toString();
+  const result = JSON.parse(payload);
+
+  if (result.statusCode !== 200) {
+    throw new Error(result.body);
+  }
+  return result.body;
+}
 
 function PdfViewer({ filePath }) {
   const [url, setUrl] = useState(null);
@@ -222,6 +252,7 @@ function HomePage() {
   const [showThoughts, setShowThoughts] = useState(false);
   const [thoughts, setThoughts] = useState([]);
   const [pdfPath, setPdfPath] = useState(null);
+  const [pdfText, setPdfText] = useState(null);
   const [userData, setUserData] = useState(null);
   const [userMap, setUserMap] = useState({});
 
@@ -443,11 +474,15 @@ function HomePage() {
 
   async function handleFileUpload(file) {
     try {
-      setPdfPath(file);
-      console.log("file:", file);
+      chat.documentText = null
+      setPdfPath(file);  // Sets the path for the PDF viewer.
+      // Read the PDF.
+      const pdfText = await readPdf(file);
+      // Add it to the chat object.
+      console.log(`Extracted text from PDF: ${pdfText}`);
+      chat.documentText = pdfText
     } catch (error) {
       console.error("Error uploading file:", error);
-      // TODO: Come up with a sensible error behavior.
       setMessages((prevMessages) => [
         ...prevMessages,
         `Error uploading file: ${error.message}`,

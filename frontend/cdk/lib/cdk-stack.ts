@@ -8,15 +8,31 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 import * as path from "path";
 
-const DEPLOYMENT_PREFIX = process.env.DEPLOYMENT_PREFIX
+const DEPLOYMENT_PREFIX = process.env.DEPLOYMENT_PREFIX;
 
 export class MainStack extends cdk.Stack {
+  makeOrFetchBucket(bucketName: string): s3.IBucket {
+    try {
+      return s3.Bucket.fromBucketName(this, "ExistingPdfBucket", bucketName);
+    } catch {
+      return new s3.Bucket(this, "PdfBucket", {
+        bucketName: bucketName,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        autoDeleteObjects: true,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        enforceSSL: true,
+      });
+    }
+  }
+
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     // Create the textraction stack before anything else.
-    const pdfBucket = new s3.Bucket(this, "PdfBucket", {
-      bucketName: DEPLOYMENT_PREFIX + "pdf-storage",
+    const pdfBucketName = DEPLOYMENT_PREFIX + "pdf-storage";
+    let pdfBucket = new s3.Bucket(this, "PdfBucket", {
+      bucketName: pdfBucketName,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
@@ -24,37 +40,36 @@ export class MainStack extends cdk.Stack {
       enforceSSL: true,
     });
 
-    const textractLambda = new lambda.Function(this, 'TextractFunction', {
+    const textractLambda = new lambda.Function(this, "TextractFunction", {
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'index.lambda_handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '..', 'lambdas', 'textract')),
+      handler: "index.lambda_handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "..", "lambdas", "textract")
+      ),
       timeout: cdk.Duration.minutes(1),
       environment: {
         REGION: this.region,
-        BUCKET_NAME: pdfBucket.bucketName
-      }
+        BUCKET_NAME: pdfBucket.bucketName,
+      },
     });
 
     pdfBucket.grantRead(textractLambda);
+    pdfBucket.grantWrite(textractLambda);
     pdfBucket.grantDelete(textractLambda);
 
     textractLambda.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
-          'textract:StartDocumentTextDetection',
-          'textract:GetDocumentTextDetection'
+          "textract:StartDocumentTextDetection",
+          "textract:GetDocumentTextDetection",
         ],
-        resources: ['*']
+        resources: ["*"],
       })
     );
 
-    const accessLogsBucket = new s3.Bucket(this, "StaticReactWebsiteAccessLogsBucket", {
-      bucketName: DEPLOYMENT_PREFIX + "static-website-logs",
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      removalPolicy: cdk.RemovalPolicy.RETAIN
-    });
+    /*
+    const accessLogsBucketName = DEPLOYMENT_PREFIX + "static-website-logs";
+    let accessLogsBucket = this.makeOrFetchBucket(accessLogsBucket)
 
     const websiteBucket = new s3.Bucket(this, "StaticReactWebsiteBucket", {
       bucketName: DEPLOYMENT_PREFIX + "static-website",
@@ -119,6 +134,7 @@ export class MainStack extends cdk.Stack {
       description: "The URL of the CloudFront distribution",
     });
 
+   */
     // Add Lambda ARN and function name to outputs
     new cdk.CfnOutput(this, "TextractLambdaArn", {
       value: textractLambda.functionArn,
