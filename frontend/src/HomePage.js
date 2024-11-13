@@ -18,6 +18,7 @@ import {
   InputLabel,
   Button,
   Box,
+  Paper,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
@@ -52,40 +53,91 @@ async function readPdf(pdfFile) {
   return result.body;
 }
 
-function PdfViewer({ filePath }) {
+function ChapterSummary({ chat, pdfText }) {
+ const [summary, setSummary] = useState("");
+ const [loading, setLoading] = useState(false);
+
+ useEffect(() => {
+   async function getSummary() {
+     if (!pdfText) return;
+
+     setLoading(true);
+     try {
+       const prompt = `Summarize the key concepts of this text using markdown, following this format:
+         # Key Concepts
+         - First key concept and brief explanation
+         - Second key concept and brief explanation
+         (and so on)
+
+         Keep it focused on the main ideas. Text to summarize:
+         ${pdfText}`;
+
+       const response = await chat.getResponse(prompt, "anthropic.claude-3-sonnet-20240229-v1:0");
+       setSummary(response.reply);
+     } catch (error) {
+       console.error("Error getting summary:", error);
+       setSummary("Failed to generate summary");
+     } finally {
+       setLoading(false);
+     }
+   }
+
+   getSummary();
+ }, [chat, pdfText]);
+
+ if (!pdfText) return null;
+
+ return (
+   <Paper className="spaced-section" elevation={3}>
+     <Typography variant="h6" gutterBottom>
+       Chapter Concepts Summarized
+     </Typography>
+     {loading ? (
+       <Typography>Generating summary...</Typography>
+     ) : (
+       <Typography variant="body1">{summary}</Typography>
+     )}
+   </Paper>
+ );
+}
+
+function PdfViewer({ chat, filePath }) {
   const [url, setUrl] = useState(null);
+  const [extractedText, setExtractedText] = useState(null);
 
   useEffect(() => {
     if (filePath) {
-      // Create URL for display
       const fileUrl = URL.createObjectURL(filePath);
       setUrl(fileUrl);
 
-      // Extract text
       const reader = new FileReader();
       reader.onload = function (e) {
         const text = e.target.result;
+        setExtractedText(text);
         console.log("PDF text content:", text);
       };
       reader.readAsText(filePath);
 
-      // Cleanup URL
       return () => URL.revokeObjectURL(fileUrl);
     }
-  }, [filePath]);
+  }, [chat, filePath]);
 
   if (!filePath) return null;
 
   return (
-    <div className="pdf-viewer">
-      <h2 className="section-header">File Preview</h2>
-      <embed
-        src={url}
-        type="application/pdf"
-        width="100%"
-        height="100%"
-        style={{ border: "none" }}
-      />
+    <div>
+      <div className="pdf-viewer">
+        <h2 className="section-header">File Preview</h2>
+        <embed
+          src={url}
+          type="application/pdf"
+          width="100%"
+          height="100%"
+          style={{ border: "none" }}
+        />
+      </div>
+      <ChapterSummary chat={chat} pdfText={extractedText} />
+     <div style={{ height: "70px", backgroundColor: "#f3f3f3", width: "100%", marginTop: "10px" }} />
     </div>
   );
 }
@@ -474,13 +526,13 @@ function HomePage() {
 
   async function handleFileUpload(file) {
     try {
-      chat.documentText = null
-      setPdfPath(file);  // Sets the path for the PDF viewer.
+      chat.documentText = null;
+      setPdfPath(file); // Sets the path for the PDF viewer.
       // Read the PDF.
       const pdfText = await readPdf(file);
       // Add it to the chat object.
       console.log(`Extracted text from PDF: ${pdfText}`);
-      chat.documentText = pdfText
+      chat.documentText = pdfText;
     } catch (error) {
       console.error("Error uploading file:", error);
       setMessages((prevMessages) => [
@@ -557,7 +609,7 @@ function HomePage() {
             </div>
             {pdfPath && (
               <div className="right">
-                <PdfViewer filePath={pdfPath} />
+                <PdfViewer chat={chat} filePath={pdfPath} />
               </div>
             )}
           </div>

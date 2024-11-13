@@ -137,3 +137,17 @@ h1 {
   height: 80vh;
   padding: 16px 16px 30px 16px;
 }
+
+.spaced-section {
+  display: flex;
+  flex-direction: column;
+  height: 80px;
+  padding: 16px 16px 30px 16px;
+}
+
+.spacer {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 30px 16px;
+  background: #ff0000;
+}
