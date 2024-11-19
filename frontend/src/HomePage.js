@@ -8,8 +8,7 @@ import { Chat } from "./Chat";
 import { UserDataClient } from "./UserData";
 import { Typography, Paper } from "@mui/material";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
-
-const USER_NAMES = ["Andrew", "Brad", "Christine", "Daniel", "Emma"];
+import { USERS } from "./constants/users";
 
 async function readPdf(pdfFile) {
   const lambda = new LambdaClient({
@@ -314,7 +313,7 @@ function HomePage() {
         const mappedUsers = userIds.reduce(
           (acc, id, index) => ({
             ...acc,
-            [USER_NAMES[index]]: id,
+            [USERS[index]]: id,
           }),
           {}
         );
@@ -401,10 +400,15 @@ function HomePage() {
 
   async function handleFileUpload(file) {
     try {
+      // Refresh the chat object.
       chat.documentText = null;
-      setPdfPath(file); // Sets the path for the PDF viewer.
-      // Read the PDF.
+
+      // Set the path for the PDF viewer.
+      setPdfPath(file);
+
+      // Read it.
       const pdfText = await readPdf(file);
+
       // Add it to the chat object.
       console.log(`Extracted text from PDF: ${pdfText}`);
       chat.documentText = pdfText;
