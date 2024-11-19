@@ -1,4 +1,4 @@
-import "./Home.css";
+import "../assets/styles/Home.css";
 import AuthenticationPage from "./Auth";
 import Navigation from "../components/Navigation";
 import React, { useState, useEffect } from "react";
