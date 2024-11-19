@@ -58,6 +58,7 @@ const Navigation = ({
           <MenuItem value={MODELS.HAIKU}>Claude 3 Haiku</MenuItem>
           <MenuItem value={MODELS.SONNET}>Claude 3 Sonnet</MenuItem>
           <MenuItem value={MODELS.OPUS}>Claude 3 Opus</MenuItem>
+          <MenuItem value={MODELS.TITAN}>Amazon Titan</MenuItem>
         </Select>
       </FormControl>
       <FormControl fullWidth sx={{ mb: 2 }}>
