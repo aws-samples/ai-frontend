@@ -63,7 +63,7 @@ function ChapterSummary({ chat, pdfText }) {
 
      setLoading(true);
      try {
-       const prompt = `Summarize the key concepts of this text using markdown, following this format:
+       const prompt = `Summarize the key concepts of this text using markdown, in this format:
          # Key Concepts
          - First key concept and brief explanation
          - Second key concept and brief explanation
@@ -157,10 +157,6 @@ function UploadModal({ isOpen, onClose, onUpload }) {
     }
   };
 
-  const handleCheckboxChange = () => {
-    setProvideAnalysis((prev) => !prev);
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -245,7 +241,7 @@ class InputForm extends React.Component {
 
   handleFileUpload = async (file, provideAnalysis) => {
     try {
-      await this.props.onFileUpload(file);
+      this.props.onFileUpload(file);
       this.handleCloseModal();
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -539,8 +535,8 @@ function HomePage() {
         ...prevMessages,
         `Error uploading file: ${error.message}`,
       ]);
-      setInputDisabled(false);
     }
+    setInputDisabled(false);
   }
 
   const handleDownload = () => {
