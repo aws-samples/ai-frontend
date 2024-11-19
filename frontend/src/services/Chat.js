@@ -1,17 +1,14 @@
 import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
 
-// const LLM_GATEWAY_URL = `${process.env.REACT_APP_LLM_GATEWAY_URL}/api/v1`;
 const LLM_GATEWAY_URL = process.env.REACT_APP_LLM_GATEWAY_URL
 
 export class AgentOutput {
   reply;
-  thoughts;
   sources;
 
-  constructor(reply, thoughts, sources = []) {
+  constructor(reply, sources = []) {
     this.reply = reply;
-    this.thoughts = thoughts;
     this.sources = sources;
   }
 }
@@ -55,7 +52,7 @@ const SESSION_ID = String(uuidv4());
 export class Chat {
   timeoutSeconds = 180;
   id = SESSION_ID;
-  apiKey;
+  apiKey = process.env.REACT_APP_API_KEY || "";
   client;
   model = "anthropic.claude-3-sonnet-20240229-v1:0";
   threadSafeSessionState = new ThreadSafeSessionState();

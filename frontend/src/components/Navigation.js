@@ -48,7 +48,7 @@ const Navigation = ({
         sx={{ mb: 2 }}
         label="API key"
         variant="outlined"
-        value={apiKey}
+        value={apiKey || process.env.REACT_APP_API_KEY || "" }
         onChange={onApiKeyChange}
         fullWidth
       />
