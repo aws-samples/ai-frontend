@@ -1,27 +1,12 @@
 import "./HomePage.css";
+import Navigation from "./components/Navigation";
 import ReactMarkdown from "react-markdown";
 import { Buffer } from "buffer";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
 import { Chat } from "./Chat";
 import { UserDataClient } from "./UserData";
-import {
-  AppBar,
-  Toolbar,
-  IconButton,
-  Typography,
-  Drawer,
-  List,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Button,
-  Box,
-  Paper,
-} from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
+import { Typography, Paper } from "@mui/material";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 
 const USER_NAMES = ["Andrew", "Brad", "Christine", "Daniel", "Emma"];
@@ -297,9 +282,9 @@ class InputForm extends React.Component {
 
 function HomePage() {
   const [apiKey, setApiKey] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [chat] = useState(() => new Chat());
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [messages, setMessages] = useState([]);
@@ -308,10 +293,7 @@ function HomePage() {
   );
   const [selectedUser, setSelectedUser] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [showThoughts, setShowThoughts] = useState(false);
-  const [thoughts, setThoughts] = useState([]);
   const [pdfPath, setPdfPath] = useState(null);
-  const [pdfText, setPdfText] = useState(null);
   const [userData, setUserData] = useState(null);
   const [userMap, setUserMap] = useState({});
 
@@ -375,122 +357,9 @@ function HomePage() {
     fetchUserData();
   }, [selectedUser]);
 
-  const toggleDrawer = (open) => (event) => {
-    if (
-      event.type === "keydown" &&
-      (event.key === "Tab" || event.key === "Shift")
-    ) {
-      return;
-    }
-    setDrawerOpen(open);
-  };
-
   const handleApiKeyChange = (event) => {
     setApiKey(event.target.value);
   };
-
-  const drawerList = (
-    <List sx={{ p: 2 }}>
-      {/* API key input. */}
-      <TextField
-        sx={{ mb: 2 }}
-        label="API key"
-        variant="outlined"
-        value={apiKey}
-        onChange={handleApiKeyChange}
-        fullWidth
-      />
-      {/* Model selection. */}
-      <FormControl fullWidth sx={{ mb: 2 }}>
-        <InputLabel>Model</InputLabel>
-        <Select
-          value={selectedModel}
-          label="Model"
-          onChange={(e) => setSelectedModel(e.target.value)}
-        >
-          <MenuItem value="anthropic.claude-3-haiku-20240229-v1:0">
-            Claude 3 Haiku
-          </MenuItem>
-          <MenuItem value="anthropic.claude-3-sonnet-20240229-v1:0">
-            Claude 3 Sonnet
-          </MenuItem>
-          <MenuItem value="anthropic.claude-3-opus-20240229-v1:0">
-            Claude 3 Opus
-          </MenuItem>
-        </Select>
-      </FormControl>
-      {/* User selection. */}
-      <FormControl fullWidth sx={{ mb: 2 }}>
-        <InputLabel>User</InputLabel>
-        <Select
-          value={selectedUser}
-          label="User"
-          onChange={(e) => setSelectedUser(e.target.value)}
-          disabled={isUsersLoading}
-        >
-          {Object.keys(userMap).map((name) => (
-            <MenuItem key={userMap[name]} value={userMap[name]}>
-              {name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      {/* User learning style. */}
-      {selectedUser !== null && (
-        <Box
-          sx={{
-            mb: 3,
-            p: 2,
-            bgcolor: "background.paper",
-            borderRadius: 1,
-          }}
-        >
-          <Typography variant="body1" sx={{ mb: 2, px: 2 }}>
-            Preferred learning style:{" "}
-            {selectedUser < 3
-              ? "Provide technical explanation"
-              : "Provide examples"}
-          </Typography>
-
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              mt: 1,
-            }}
-          >
-            <Button
-              onClick={() => setShowExplanation(!showExplanation)}
-              sx={{
-                p: 0,
-                minWidth: "auto",
-                fontSize: "0.75rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "text.secondary",
-              }}
-            >
-              explain why
-            </Button>
-
-            {showExplanation && (
-              <Typography
-                variant="caption"
-                sx={{
-                  mt: 1,
-                  color: "text.secondary",
-                  alignSelf: "stretch",
-                }}
-              >
-                {JSON.stringify(userData, null, 2)}
-              </Typography>
-            )}
-          </Box>
-        </Box>
-      )}
-    </List>
-  );
 
   const handleAuthentication = () => {
     setAuthenticated(true);
@@ -505,7 +374,6 @@ function HomePage() {
   }
 
   async function getReply(message = "") {
-    setThoughts([]); // Clear previous thoughts
     setInputDisabled(true);
 
     try {
@@ -572,38 +440,21 @@ function HomePage() {
     <div className="HomePage">
       {authenticated ? (
         <div>
-          <AppBar position="sticky" style={{ backgroundColor: "#232F3E" }}>
-            <Toolbar>
-              <IconButton
-                edge="start"
-                aria-label="menu"
-                onClick={toggleDrawer(true)}
-              >
-                <MenuIcon style={{ color: "white" }} />
-              </IconButton>
-              <img
-                src={process.env.PUBLIC_URL + "/aws_logo.png"}
-                alt=" "
-                className="logo"
-                style={{ height: "30px", marginRight: "10px" }}
-              />
-              <Typography variant="h6" style={{ flexGrow: 1 }}>
-                AWS AI Assistant
-              </Typography>
-            </Toolbar>
-          </AppBar>
-          <Drawer
-            anchor="left"
-            open={drawerOpen}
-            onClose={toggleDrawer(false)}
-            PaperProps={{
-              sx: {
-                width: "min(100%, 500px)",
-              },
-            }}
-          >
-            {drawerList}
-          </Drawer>
+          <Navigation
+            drawerOpen={drawerOpen}
+            setDrawerOpen={setDrawerOpen}
+            apiKey={apiKey}
+            onApiKeyChange={handleApiKeyChange}
+            selectedModel={selectedModel}
+            onModelChange={(e) => setSelectedModel(e.target.value)}
+            selectedUser={selectedUser}
+            onUserChange={(e) => setSelectedUser(e.target.value)}
+            userMap={userMap}
+            isUsersLoading={isUsersLoading}
+            userData={userData}
+            showExplanation={showExplanation}
+            setShowExplanation={setShowExplanation}
+          />
           <div className="main-section">
             <div className={`left ${pdfPath ? "with-preview" : ""}`}>
               <ChatContainer messages={messages} />
