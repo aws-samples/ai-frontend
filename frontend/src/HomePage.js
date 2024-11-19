@@ -1,4 +1,5 @@
 import "./HomePage.css";
+import ReactMarkdown from "react-markdown";
 import { Buffer } from "buffer";
 import AuthenticationPage from "./Auth";
 import React, { useState, useEffect } from "react";
@@ -54,52 +55,58 @@ async function readPdf(pdfFile) {
 }
 
 function ChapterSummary({ chat }) {
- const [summary, setSummary] = useState("");
- const [loading, setLoading] = useState(false);
- let pdfText = "blah blah"
+  const [summary, setSummary] = useState("");
+  const [loading, setLoading] = useState(false);
 
- useEffect(() => {
-   async function getSummary() {
-     if (!pdfText) return;
+  useEffect(() => {
+    async function getSummary() {
+      if (!chat.documentText) return;
 
-     setLoading(true);
-     try {
-       const prompt = `Summarize the key concepts of this text using markdown, in this format:
+      setLoading(true);
+      try {
+        const prompt = `Summarize the key concepts of this text using markdown, in this format:
          # Key Concepts
          - First key concept and brief explanation
          - Second key concept and brief explanation
          (and so on)
 
          Keep it focused on the main ideas. Text to summarize:
-         ${pdfText}`;
+         ${chat.documentText}`;
 
-       const response = await chat.getResponse(prompt, "anthropic.claude-3-sonnet-20240229-v1:0");
-       setSummary(response.reply);
-     } catch (error) {
-       console.error("Error getting summary:", error);
-       setSummary("Failed to generate summary");
-     } finally {
-       setLoading(false);
-     }
-   }
+        const response = await chat.getResponse(
+          prompt,
+          "anthropic.claude-3-sonnet-20240229-v1:0"
+        );
+        setSummary(response.reply);
+      } catch (error) {
+        console.error("Error getting summary:", error);
+        setSummary("Failed to generate summary");
+      } finally {
+        setLoading(false);
+      }
+    }
 
-   getSummary();
- }, [chat, pdfText]);
+    getSummary();
+  }, [chat, chat.documentText]);
 
- if (!pdfText) return null;
-
- return (
-   <Paper className="spaced-section" elevation={3}>
-     <Typography variant="h6" gutterBottom>
-       Chapter Concepts Summarized
-     </Typography>
-     {loading ? (
-       <Typography>Generating summary...</Typography>
-     ) : (
-       <Typography variant="body1">{summary}</Typography>
-     )}
-   </Paper>
- );
+  return (
+    <Paper
+      className="spaced-section"
+      elevation={3}
+      sx={{ minHeight: "fit-content", maxHeight: "800vh", overflowY: "auto" }}
+    >
+      <Typography variant="h6" gutterBottom>
+        Chapter Concepts Summarized
+      </Typography>
+      {loading ? (
+        <Typography>Generating summary...</Typography>
+      ) : (
+        <div className="markdown-body">
+          <ReactMarkdown>{summary}</ReactMarkdown>
+        </div>
+      )}
+    </Paper>
+  );
 }
 
 function PdfViewer({ chat, filePath }) {
@@ -135,14 +142,20 @@ function PdfViewer({ chat, filePath }) {
         />
       </div>
       <ChapterSummary chat={chat} />
-     <div style={{ height: "70px", backgroundColor: "#f3f3f3", width: "100%", marginTop: "10px" }} />
+      <div
+        style={{
+          height: "70px",
+          backgroundColor: "#f3f3f3",
+          width: "100%",
+          marginTop: "10px",
+        }}
+      />
     </div>
   );
 }
 
 function UploadModal({ isOpen, onClose, onUpload }) {
   const [file, setFile] = useState(null);
-  const [provideAnalysis, setProvideAnalysis] = useState(false);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -151,7 +164,7 @@ function UploadModal({ isOpen, onClose, onUpload }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (file) {
-      onUpload(file, provideAnalysis);
+      onUpload(file);
     }
   };
 
@@ -237,7 +250,7 @@ class InputForm extends React.Component {
     this.setState({ isModalOpen: false });
   };
 
-  handleFileUpload = async (file, provideAnalysis) => {
+  handleFileUpload = async (file) => {
     try {
       this.props.onFileUpload(file);
       this.handleCloseModal();

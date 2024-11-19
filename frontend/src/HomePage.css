@@ -141,7 +141,7 @@ h1 {
 .spaced-section {
   display: flex;
   flex-direction: column;
-  height: 80px;
+  height: 200px;
   padding: 16px 16px 30px 16px;
 }
 
@@ -150,4 +150,29 @@ h1 {
   flex-direction: column;
   padding: 16px 16px 30px 16px;
   background: #ff0000;
+}
+
+.markdown-body {
+  padding: 16px;
+  text-align: left;
+}
+
+.markdown-body h1 {
+  font-size: 1.5em;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.markdown-body ul {
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+.markdown-body li {
+  margin-bottom: 8px;
+}
+
+.markdown-body p {
+  margin-bottom: 16px;
+  line-height: 1.5;
 }
