@@ -1,14 +1,14 @@
 import "./Home.css";
+import AuthenticationPage from "./Auth";
 import Navigation from "../components/Navigation";
+import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Buffer } from "buffer";
-import AuthenticationPage from "./Auth";
-import React, { useState, useEffect } from "react";
 import { Chat } from "../services/Chat";
-import { UserDataClient } from "../services/UserData";
-import { Typography, Paper } from "@mui/material";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
+import { Typography, Paper } from "@mui/material";
 import { USERS } from "../constants/users";
+import { UserDataClient } from "../services/UserData";
 
 async function readPdf(pdfFile) {
   const lambda = new LambdaClient({
