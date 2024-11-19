@@ -36,11 +36,11 @@ async function readPdf(pdfFile) {
   });
 
   const buffer = await pdfFile.arrayBuffer();
-  const base64Content = Buffer.from(buffer).toString("base64");
+  const pdfBytes = Buffer.from(buffer).toString("base64");
 
   const command = new InvokeCommand({
     FunctionName: process.env.REACT_APP_PDF_FUNCTION_NAME || "",
-    Payload: JSON.stringify({ pdf_content: base64Content }),
+    Payload: JSON.stringify({ pdf_content: String(pdfBytes) }),
   });
 
   const response = await lambda.send(command);
@@ -53,9 +53,10 @@ async function readPdf(pdfFile) {
   return result.body;
 }
 
-function ChapterSummary({ chat, pdfText }) {
+function ChapterSummary({ chat }) {
  const [summary, setSummary] = useState("");
  const [loading, setLoading] = useState(false);
+ let pdfText = "blah blah"
 
  useEffect(() => {
    async function getSummary() {
@@ -103,7 +104,6 @@ function ChapterSummary({ chat, pdfText }) {
 
 function PdfViewer({ chat, filePath }) {
   const [url, setUrl] = useState(null);
-  const [extractedText, setExtractedText] = useState(null);
 
   useEffect(() => {
     if (filePath) {
@@ -113,8 +113,6 @@ function PdfViewer({ chat, filePath }) {
       const reader = new FileReader();
       reader.onload = function (e) {
         const text = e.target.result;
-        setExtractedText(text);
-        console.log("PDF text content:", text);
       };
       reader.readAsText(filePath);
 
@@ -136,7 +134,7 @@ function PdfViewer({ chat, filePath }) {
           style={{ border: "none" }}
         />
       </div>
-      <ChapterSummary chat={chat} pdfText={extractedText} />
+      <ChapterSummary chat={chat} />
      <div style={{ height: "70px", backgroundColor: "#f3f3f3", width: "100%", marginTop: "10px" }} />
     </div>
   );

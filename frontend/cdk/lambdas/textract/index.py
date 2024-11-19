@@ -3,6 +3,7 @@ import time
 import os
 from botocore.exceptions import ClientError
 import uuid
+import base64
 
 AWS_REGION = os.getenv("REGION", "us-west-2")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
@@ -13,8 +14,9 @@ print("BUCKET_NAME:", BUCKET_NAME)
 textract = boto3.client("textract", region_name=AWS_REGION)
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
-def upload_file_to_s3(file_content, bucket, object_key):
+def upload_file_to_s3(buffer_string, bucket, object_key):
     try:
+        file_content = base64.b64decode(buffer_string)
         s3.put_object(Body=file_content, Bucket=bucket, Key=object_key)
         return object_key
     except ClientError as e:
@@ -71,19 +73,24 @@ def lambda_handler(event, context):
         if "pdf_content" not in event or not event["pdf_content"]:
             raise Exception("No PDF content provided in the event")
 
-        pdf_filename = f"upload_{uuid.uuid4()}.pdf"
+        pdf_filename = f"pdf_upload_at_{time.time()}.pdf"
 
         try:
+            print("Uploading file to S3.")
             upload_file_to_s3(event["pdf_content"], BUCKET_NAME, pdf_filename)
+            print("Extracting text.")
             text = extract_text_from_pdf(pdf_filename, BUCKET_NAME)
+            print("Deleting file from S3.")
             delete_file_from_s3(BUCKET_NAME, pdf_filename)
 
+            print("Success! Returning body:", text)
             return {
                 "statusCode": 200,
                 "body": text
             }
 
         except Exception as e:
+            print("Deleting file from S3.")
             delete_file_from_s3(BUCKET_NAME, pdf_filename)
             raise e
 
