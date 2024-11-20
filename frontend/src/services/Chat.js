@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
 
-const LLM_GATEWAY_URL = process.env.REACT_APP_LLM_GATEWAY_URL
+const LLM_GATEWAY_URL = process.env.REACT_APP_LLM_GATEWAY_URL;
 
 export class ThreadSafeSessionState {
   constructor() {
@@ -87,9 +87,9 @@ export class ChatClient {
     try {
       const result = await this.post(message, model);
 
-      const reply = result
+      const reply = result;
 
-      return reply
+      return reply;
     } catch (e) {
       console.log(e);
       throw e;
@@ -105,13 +105,15 @@ export class ChatClient {
     }
 
     if (this.documentText) {
-      message = message + `\nThis document may help you: <document>${this.documentText}</document>`
-      console.log("Augmented message:", message)
+      message =
+        message +
+        `\nThis document may help you: <document>${this.documentText}</document>`;
+      console.log("Augmented message:", message);
     }
 
     let fullResponse = "";
     try {
-      console.log(message, model)
+      console.log(message, model);
       const stream = await this.client.chat.completions.create({
         model: model,
         messages: [{ role: "user", content: message }],
@@ -153,9 +155,12 @@ export class ChatClient {
   async getResponseWithLearningStyle(message, model, learningStyle = null) {
     let augmented_message = message;
     if (learningStyle) {
-      augmented_message = message + `This user prefers their answers to match the following learning style ${learningStyle}. Your answer should explicitly be tailored to this style of learning.`
+      console.log(`Augmenting message with learning style ${learningStyle}`);
+      augmented_message =
+        message +
+        `This user prefers their answers to match the following learning style ${learningStyle}. Your answer should explicitly mention the user's style of learning, and be tailored to this style of learning.`;
     }
-    return await this.post(augmented_message, model)
+    return await this.post(augmented_message, model);
   }
 }
 
