@@ -1,6 +1,6 @@
 import "../assets/styles/Home.css";
 import AuthenticationPage from "./Auth";
-import Chat from "../services/Chat";
+import ChatClient from "../services/Chat";
 import ChatInputForm from "../components/ChatInputForm";
 import ChatMessages from "../components/ChatMessages";
 import Navigation from "../components/Navigation";
@@ -12,7 +12,7 @@ import { readPdf } from "../services/Pdf";
 import { Typography, Paper } from "@mui/material";
 
 function ChapterSummary({ chat, learningStyle }) {
-  const [summary, setSummary] = useState("");
+  const [summary, setSummary] = useState("Generating summary...");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,10 +35,10 @@ function ChapterSummary({ chat, learningStyle }) {
           "anthropic.claude-3-sonnet-20240229-v1:0",  // TODO: Swap out.
           learningStyle
         );
-        setSummary(response.reply);
+        setSummary(response);
       } catch (error) {
         console.error("Error getting summary:", error);
-        setSummary("Failed to generate summary");
+        setSummary("Failed to generate summary.");
       } finally {
         setLoading(false);
       }
@@ -177,7 +177,7 @@ function HomePage() {
             docCounts,
             selectedModel
           );
-          setUserData(explanation.reply);
+          setUserData(explanation);
         } catch (error) {
           console.error("Failed to fetch document counts:", error);
           setUserData(null);

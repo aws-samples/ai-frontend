@@ -96,7 +96,7 @@ export class ChatClient {
     }
   }
 
-  async post(prompt, model) {
+  async post(message, model) {
     const chatId = await this.threadSafeSessionState.get("chat_id");
     if (chatId) {
       console.log(`found chat id ${chatId} in context`);
@@ -105,16 +105,16 @@ export class ChatClient {
     }
 
     if (this.documentText) {
-      prompt = prompt + `\nThis document may help you: <document>${this.documentText}</document>`
-      console.log("Augmented prompt:", prompt)
+      message = message + `\nThis document may help you: <document>${this.documentText}</document>`
+      console.log("Augmented message:", message)
     }
 
     let fullResponse = "";
     try {
-      console.log(prompt, model)
+      console.log(message, model)
       const stream = await this.client.chat.completions.create({
         model: model,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: message }],
         max_tokens: 1000,
         temperature: 1,
         n: 1,
@@ -151,11 +151,11 @@ export class ChatClient {
   }
 
   async getResponseWithLearningStyle(message, model, learningStyle = null) {
-    let  augmented_prompt = message;
+    let augmented_message = message;
     if (learningStyle) {
-      let augmented_prompt = message + `This user prefers their answers to match the following learning style ${learningStyle}. Your answer should explicitly be tailored to this style of learning.`
+      augmented_message = message + `This user prefers their answers to match the following learning style ${learningStyle}. Your answer should explicitly be tailored to this style of learning.`
     }
-    return await this.post(augmented_prompt, model)
+    return await this.post(augmented_message, model)
   }
 }
 
