@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { MODELS } from "../constants/models";
 import {
   AppBar,
@@ -32,6 +32,8 @@ const Navigation = ({
   showExplanation,
   setShowExplanation,
 }) => {
+  const [learningStyle, setLearningStyle] = useState("");
+
   const toggleDrawer = (open) => (event) => {
     if (
       event.type === "keydown" &&
@@ -42,13 +44,25 @@ const Navigation = ({
     setDrawerOpen(open);
   };
 
+  useEffect(() => {
+    console.log(selectedUser, learningStyle);
+    if (
+      selectedUser == "e83a6587-3701-4d73-bd5d-57baa91e1558" ||
+      selectedUser == "8d1a215b-1dd9-40d1-9821-82d15caecf76"
+    ) {
+      setLearningStyle("Provide technical explanation");
+    } else {
+      setLearningStyle("Provide examples");
+    }
+  }, [selectedUser]);
+
   const drawerList = (
     <List sx={{ p: 2 }}>
       <TextField
         sx={{ mb: 2 }}
         label="API key"
         variant="outlined"
-        value={apiKey || process.env.REACT_APP_API_KEY || "" }
+        value={apiKey || process.env.REACT_APP_API_KEY || ""}
         onChange={onApiKeyChange}
         fullWidth
       />
@@ -79,10 +93,7 @@ const Navigation = ({
       {selectedUser !== null && (
         <Box sx={{ mb: 3, p: 2, bgcolor: "background.paper", borderRadius: 1 }}>
           <Typography variant="body1" sx={{ mb: 2, px: 2 }}>
-            Preferred learning style:{" "}
-            {selectedUser < 3
-              ? "Provide technical explanation"
-              : "Provide examples"}
+            Preferred learning style: {learningStyle}
           </Typography>
           <Box
             sx={{

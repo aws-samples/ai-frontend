@@ -1,44 +1,17 @@
 import "../assets/styles/Home.css";
 import AuthenticationPage from "./Auth";
+import Chat from "../services/Chat";
+import ChatInputForm from "../components/ChatInputForm";
+import ChatMessages from "../components/ChatMessages";
 import Navigation from "../components/Navigation";
 import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { Buffer } from "buffer";
-import { Chat } from "../services/Chat";
-import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
+import USERS from "../constants/users";
+import UserDataClient from "../services/UserData";
+import { readPdf } from "../services/Pdf";
 import { Typography, Paper } from "@mui/material";
-import { USERS } from "../constants/users";
-import { UserDataClient } from "../services/UserData";
 
-async function readPdf(pdfFile) {
-  const lambda = new LambdaClient({
-    region: process.env.REGION || "us-west-2",
-    credentials: {
-      accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-      sessionToken: process.env.REACT_APP_AWS_SESSION_TOKEN,
-    },
-  });
-
-  const buffer = await pdfFile.arrayBuffer();
-  const pdfBytes = Buffer.from(buffer).toString("base64");
-
-  const command = new InvokeCommand({
-    FunctionName: process.env.REACT_APP_PDF_FUNCTION_NAME || "",
-    Payload: JSON.stringify({ pdf_content: String(pdfBytes) }),
-  });
-
-  const response = await lambda.send(command);
-  const payload = Buffer.from(response.Payload || "").toString();
-  const result = JSON.parse(payload);
-
-  if (result.statusCode !== 200) {
-    throw new Error(result.body);
-  }
-  return result.body;
-}
-
-function ChapterSummary({ chat }) {
+function ChapterSummary({ chat, learningStyle }) {
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +21,7 @@ function ChapterSummary({ chat }) {
 
       setLoading(true);
       try {
-        const prompt = `Summarize the key concepts of this text using markdown, in this format:
+        const message = `Summarize the key concepts of this text using markdown, in this format:
          # Key Concepts
          - First key concept and brief explanation
          - Second key concept and brief explanation
@@ -57,9 +30,10 @@ function ChapterSummary({ chat }) {
          Keep it focused on the main ideas. Text to summarize:
          ${chat.documentText}`;
 
-        const response = await chat.getResponse(
-          prompt,
-          "anthropic.claude-3-sonnet-20240229-v1:0"
+        const response = await chat.getResponseWithLearningStyle(
+          message,
+          "anthropic.claude-3-sonnet-20240229-v1:0",  // TODO: Swap out.
+          learningStyle
         );
         setSummary(response.reply);
       } catch (error) {
@@ -71,7 +45,7 @@ function ChapterSummary({ chat }) {
     }
 
     getSummary();
-  }, [chat, chat.documentText]);
+  }, [chat, chat.documentText, learningStyle]);
 
   return (
     <Paper
@@ -93,7 +67,7 @@ function ChapterSummary({ chat }) {
   );
 }
 
-function PdfViewer({ chat, filePath }) {
+function PdfViewer({ chat, filePath, learningStyle }) {
   const [url, setUrl] = useState(null);
 
   useEffect(() => {
@@ -125,7 +99,7 @@ function PdfViewer({ chat, filePath }) {
           style={{ border: "none" }}
         />
       </div>
-      <ChapterSummary chat={chat} />
+      <ChapterSummary chat={chat} learningStyle={learningStyle}/>
       <div
         style={{
           height: "70px",
@@ -138,152 +112,12 @@ function PdfViewer({ chat, filePath }) {
   );
 }
 
-function UploadModal({ isOpen, onClose, onUpload }) {
-  const [file, setFile] = useState(null);
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (file) {
-      onUpload(file);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal">
-      <div className="modal-content">
-        <h2>Upload File</h2>
-        <form onSubmit={handleSubmit}>
-          <input type="file" onChange={handleFileChange} />
-          <button type="submit" disabled={!file}>
-            Upload
-          </button>
-        </form>
-        <button onClick={onClose}>Close</button>
-      </div>
-    </div>
-  );
-}
-
-function ChatContainer({ messages }) {
-  return (
-    <div>
-      <h2 className="section-header">Main Chat</h2>
-      <div className="chat-container">
-        <div className="chat">
-          <div className="messages">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`message ${index % 2 === 0 ? "user" : "bot"}`}
-              >
-                {message.split("\n").map((line, i) => (
-                  <React.Fragment key={i}>
-                    {line.startsWith("• ") ? (
-                      <li>{line.substring(2)}</li>
-                    ) : (
-                      <>
-                        {line}
-                        <br />
-                      </>
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
-            ))}
-            <div className="hacky-spacer" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-class InputForm extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      inputValue: "",
-      isModalOpen: false,
-    };
-  }
-
-  handleInputChange = (e) => {
-    this.setState({ inputValue: e.target.value });
-  };
-
-  handleSubmit = (e) => {
-    e.preventDefault();
-    const { inputValue } = this.state;
-    if (inputValue.trim() !== "") {
-      this.props.onSendMessage(inputValue);
-      this.setState({ inputValue: "" });
-    }
-  };
-
-  handleOpenModal = () => {
-    this.setState({ isModalOpen: true });
-  };
-
-  handleCloseModal = () => {
-    this.setState({ isModalOpen: false });
-  };
-
-  handleFileUpload = async (file) => {
-    try {
-      this.props.onFileUpload(file);
-      this.handleCloseModal();
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      // TODO: Reasonable error handling.
-    }
-  };
-
-  render() {
-    const { inputDisabled, onDownload } = this.props;
-    const { inputValue, isModalOpen } = this.state;
-
-    return (
-      <>
-        <form onSubmit={this.handleSubmit} className="input-form">
-          <input
-            type="text"
-            name="message"
-            placeholder="Type your message"
-            value={inputValue}
-            onChange={this.handleInputChange}
-            disabled={inputDisabled}
-          />
-          <button type="submit" disabled={inputDisabled}>
-            ⏩ Send
-          </button>
-          <button type="button" onClick={this.handleOpenModal}>
-            📎 Attach PDF
-          </button>
-          <button type="button" onClick={onDownload}>
-            💾 Download Chat
-          </button>
-        </form>
-        <UploadModal
-          isOpen={isModalOpen}
-          onClose={this.handleCloseModal}
-          onUpload={this.handleFileUpload}
-        />
-      </>
-    );
-  }
-}
-
 function HomePage() {
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(process.env.REACT_APP_API_KEY || "");
+  const [learningStyle, setLearningStyle] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
-  const [chat] = useState(() => new Chat());
+  const [chat] = useState(() => new ChatClient());
   const [inputDisabled, setInputDisabled] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(true);
   const [messages, setMessages] = useState([]);
@@ -376,17 +210,8 @@ function HomePage() {
     setInputDisabled(true);
 
     try {
-      const agentOutput = await chat.getResponse(message, selectedModel);
-
-      let finalMessage = agentOutput.reply;
-      if (agentOutput.sources && agentOutput.sources.length > 0) {
-        finalMessage += "\n\nSources:";
-        agentOutput.sources.forEach((source) => {
-          finalMessage += `\n• ${source}`;
-        });
-      }
-
-      setMessages((prevMessages) => [...prevMessages, finalMessage]);
+      const agentOutput = await chat.getResponseWithLearningStyle(message, selectedModel, learningStyle);
+      setMessages((prevMessages) => [...prevMessages, agentOutput]);
     } catch (error) {
       console.error("Error getting response:", error);
       setMessages((prevMessages) => [
@@ -445,6 +270,7 @@ function HomePage() {
       {authenticated ? (
         <div>
           <Navigation
+            learningStyle={learningStyle}
             drawerOpen={drawerOpen}
             setDrawerOpen={setDrawerOpen}
             apiKey={apiKey}
@@ -458,11 +284,12 @@ function HomePage() {
             userData={userData}
             showExplanation={showExplanation}
             setShowExplanation={setShowExplanation}
+            onLearningStyleChange={(e) => setLearningStyle(e.target.value)}
           />
           <div className="main-section">
             <div className={`left ${pdfPath ? "with-preview" : ""}`}>
-              <ChatContainer messages={messages} />
-              <InputForm
+              <ChatMessages messages={messages} />
+              <ChatInputForm
                 inputDisabled={inputDisabled}
                 onSendMessage={handleSendMessage}
                 onFileUpload={handleFileUpload}
@@ -471,7 +298,7 @@ function HomePage() {
             </div>
             {pdfPath && (
               <div className="right">
-                <PdfViewer chat={chat} filePath={pdfPath} />
+                <PdfViewer chat={chat} filePath={pdfPath} learningStyle={learningStyle}/>
               </div>
             )}
           </div>

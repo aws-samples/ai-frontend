@@ -1,6 +1,6 @@
 import { Athena, StartQueryExecutionCommand } from "@aws-sdk/client-athena";
 
-export class UserDataClient {
+export default class UserDataClient {
   databaseName = process.env.REACT_APP_DB_NAME
   tableName = process.env.REACT_APP_TABLE_NAME
   s3OutputBucket = process.env.REACT_APP_S3_OUTPUT_BUCKET;

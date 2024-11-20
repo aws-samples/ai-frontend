@@ -3,16 +3,6 @@ import { v4 as uuidv4 } from "uuid";
 
 const LLM_GATEWAY_URL = process.env.REACT_APP_LLM_GATEWAY_URL
 
-export class AgentOutput {
-  reply;
-  sources;
-
-  constructor(reply, sources = []) {
-    this.reply = reply;
-    this.sources = sources;
-  }
-}
-
 export class ThreadSafeSessionState {
   constructor() {
     this.lock = false;
@@ -48,10 +38,9 @@ export class ThreadSafeSessionState {
   }
 }
 
-const SESSION_ID = String(uuidv4());
-export class Chat {
+export class ChatClient {
   timeoutSeconds = 180;
-  id = SESSION_ID;
+  id = String(uuidv4());
   apiKey = process.env.REACT_APP_API_KEY || "";
   client;
   model = "anthropic.claude-3-sonnet-20240229-v1:0";
@@ -67,8 +56,7 @@ export class Chat {
     });
   }
 
-  /* Function which strips preceeding whitespace from the response.
-   */
+  // Function which strips preceeding whitespace from the response.
   stripReply = (text) => {
     return text.replace(/^\s+/g, "").replace(/\n+$/, "");
   };
@@ -101,10 +89,7 @@ export class Chat {
 
       const reply = result
 
-      // Extract sources from the result
-      const sources = result.sources || [];
-
-      return new AgentOutput(reply, [], []);
+      return reply
     } catch (e) {
       console.log(e);
       throw e;
@@ -114,8 +99,6 @@ export class Chat {
   async post(prompt, model) {
     const chatId = await this.threadSafeSessionState.get("chat_id");
     if (chatId) {
-      // ToDo: Restore chat_id functionality to support server side history
-      //message["chat_id"] = await this.threadSafeSessionState.get("chat_id");
       console.log(`found chat id ${chatId} in context`);
     } else {
       console.log("did not find chat id in context");
@@ -138,10 +121,6 @@ export class Chat {
         stream: true,
         stream_options: { include_usage: true },
       });
-
-      // ToDo: Restore chat_id functionality to support server side history
-      // console.log(`Assigning chat id: ${response_json.get("chat_id")}`);
-      // await this.threadSafeSessionState.set("chat_id", response_json.get("chat_id"));
 
       for await (const chunk of stream) {
         console.log(chunk);
@@ -170,4 +149,14 @@ export class Chat {
     console.log("response:", fullResponse);
     return fullResponse;
   }
+
+  async getResponseWithLearningStyle(message, model, learningStyle = null) {
+    let  augmented_prompt = message;
+    if (learningStyle) {
+      let augmented_prompt = message + `This user prefers their answers to match the following learning style ${learningStyle}. Your answer should explicitly be tailored to this style of learning.`
+    }
+    return await this.post(augmented_prompt, model)
+  }
 }
+
+export default ChatClient;

@@ -6,3 +6,5 @@ export const MODELS = {
   // Amazon.
   TITAN: "amazon.titan-text-express-v1"
 };
+
+export default MODELS;
