@@ -143,7 +143,7 @@ function HomePage() {
   useEffect(() => {
     const fetchAndMapUsers = async () => {
       try {
-        const userIds = await userDataClient.listUserIds();
+        const userIds = await userDataClient.listUserIds();  // <<< failing
         const mappedUsers = userIds.reduce(
           (acc, id, index) => ({
             ...acc,
