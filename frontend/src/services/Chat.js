@@ -97,13 +97,6 @@ export class ChatClient {
   }
 
   async post(message, model) {
-    const chatId = await this.threadSafeSessionState.get("chat_id");
-    if (chatId) {
-      console.log(`found chat id ${chatId} in context`);
-    } else {
-      console.log("did not find chat id in context");
-    }
-
     if (this.documentText) {
       message =
         message +
@@ -153,6 +146,7 @@ export class ChatClient {
   }
 
   async getResponseWithLearningStyle(message, model, learningStyle = null) {
+    console.log(`Sending ${message} to model ${model}`)
     let augmented_message = message;
     if (learningStyle) {
       console.log(`Augmenting message with learning style ${learningStyle}`);

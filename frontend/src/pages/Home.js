@@ -30,9 +30,11 @@ function ChapterSummary({ chat, learningStyle }) {
          Keep it focused on the main ideas. Text to summarize:
          ${chat.documentText}`;
 
+
+        console.log(message, chat.model)
         const response = await chat.getResponseWithLearningStyle(
           message,
-          "anthropic.claude-3-sonnet-20240229-v1:0",  // TODO: Swap out.
+          chat.model,
           learningStyle
         );
         setSummary(response);
