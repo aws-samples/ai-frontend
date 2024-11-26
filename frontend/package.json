@@ -5,6 +5,8 @@
   "dependencies": {
     "@aws-sdk/client-athena": "^3.682.0",
     "@aws-sdk/client-lambda": "^3.687.0",
+    "@aws-sdk/client-sts": "^3.696.0",
+    "@aws-sdk/credential-providers": "^3.696.0",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^5.16.7",

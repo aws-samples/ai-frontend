@@ -97,13 +97,6 @@ export class ChatClient {
   }
 
   async post(message, model) {
-    const chatId = await this.threadSafeSessionState.get("chat_id");
-    if (chatId) {
-      console.log(`found chat id ${chatId} in context`);
-    } else {
-      console.log("did not find chat id in context");
-    }
-
     if (this.documentText) {
       message =
         message +
@@ -113,7 +106,6 @@ export class ChatClient {
 
     let fullResponse = "";
     try {
-      console.log(message, model);
       const stream = await this.client.chat.completions.create({
         model: model,
         messages: [{ role: "user", content: message }],
@@ -160,6 +152,7 @@ export class ChatClient {
         message +
         `This user prefers their answers to match the following learning style ${learningStyle}. Your answer should explicitly mention the user's style of learning, and be tailored to this style of learning.`;
     }
+    console.log(`Sending ${message} to model ${model}`)
     return await this.post(augmented_message, model);
   }
 }

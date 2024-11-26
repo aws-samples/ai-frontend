@@ -1,26 +1,88 @@
 import { Athena, StartQueryExecutionCommand } from "@aws-sdk/client-athena";
+import { fromTemporaryCredentials } from "@aws-sdk/credential-providers";
+import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
+
+async function assumeRole(sts) {
+  try {
+    const command = new AssumeRoleCommand({
+      RoleArn: process.env.REACT_APP_DATAZONE_ROLE_ARN,
+      RoleSessionName: "DataZoneReactAppSession",
+      //DurationSeconds: 3600, // 1 hour
+    });
+
+    const response = await sts.send(command);
+
+    // These are the temporary credentials
+    return {
+      accessKeyId: response.Credentials.AccessKeyId,
+      secretAccessKey: response.Credentials.SecretAccessKey,
+      sessionToken: response.Credentials.SessionToken,
+      expiration: response.Credentials.Expiration
+    };
+
+  } catch (error) {
+    console.error("Error assuming role:", error);
+    throw error;
+  }
+}
 
 export default class UserDataClient {
-  databaseName = process.env.REACT_APP_DB_NAME
-  tableName = process.env.REACT_APP_TABLE_NAME
+  region = "us-east-1";
+  databaseName = process.env.REACT_APP_DB_NAME;
+  tableName = process.env.REACT_APP_TABLE_NAME;
   s3OutputBucket = process.env.REACT_APP_S3_OUTPUT_BUCKET;
-  athena = new Athena({
-    region: "us-east-1",
-    credentials: {
-      accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-      sessionToken: process.env.REACT_APP_AWS_SESSION_TOKEN,
-    },
-  });
+  athena;
   chat;
   learningData;
+  sts;
+  isInitialized = false;
+
+  async initialize(chat) {
+    console.log("Initializing UserDataClient.");
+
+    this.chat = chat;
+
+    // This function seems to happen async, which means we need to make
+    // the whole initialization process of this object also async.
+    const sts = new STSClient({
+      region: this.region,
+      credentials: {
+        accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+        sessionToken: process.env.REACT_APP_AWS_SESSION_TOKEN,
+      },
+    });
+
+
+    const role = process.env.REACT_APP_DATAZONE_ROLE_ARN;
+    const credentials = await assumeRole(sts, role)
+
+    this.athena = new Athena({
+      region: this.region,
+      credentials: {
+        accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+        sessionToken: process.env.REACT_APP_AWS_SESSION_TOKEN,
+      },
+    });
+
+    this.isInitialized = true;
+  }
 
   constructor(chat) {
-    this.chat = chat
+    this.initializationPromise = this.initialize(chat);
+  }
+
+  async ensureInitialized() {
+    if (!this.isInitialized) {
+      await this.initializationPromise;
+    }
   }
 
   async executeQuery(query) {
-    console.log(`Calling Athena to ${this.databaseName}.${this.tableName}`)
+    await this.ensureInitialized();
+
+    console.log(`Calling Athena to ${this.databaseName}.${this.tableName}`);
 
     const command = new StartQueryExecutionCommand({
       QueryString: query,
@@ -56,17 +118,19 @@ export default class UserDataClient {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    const { ResultSet } = await this.athena.getQueryResults({ QueryExecutionId });
+    const { ResultSet } = await this.athena.getQueryResults({
+      QueryExecutionId,
+    });
 
-    console.log("Query results:", ResultSet)
+    console.log("Query results:", ResultSet);
     const rows = ResultSet.Rows.slice(1);
-    console.log("Query rows:", rows)
-    return rows
+    console.log("Query rows:", rows);
+    return rows;
   }
 
   async getDocumentTypeCounts(userId) {
     const results = await this.executeQuery(
-     `SELECT document_type, COUNT(document_type) as count
+      `SELECT document_type, COUNT(document_type) as count
      FROM "${this.databaseName}"."${this.tableName}"
      WHERE user_id = '${userId}'
      GROUP BY document_type`
@@ -81,6 +145,7 @@ export default class UserDataClient {
   }
 
   async listUserIds() {
+    await this.ensureInitialized();
     const results = await this.executeQuery(
       `SELECT DISTINCT user_id FROM "${this.databaseName}"."${this.tableName}"`
     );
@@ -88,8 +153,11 @@ export default class UserDataClient {
   }
 
   async explainCustomization(userName, learningData, selectedModel) {
-    const learningDataString = JSON.stringify(learningData, null, 2)
-    console.log("Generating explanation from learning data:", learningDataString)
+    const learningDataString = JSON.stringify(learningData, null, 2);
+    console.log(
+      "Generating explanation from learning data:",
+      learningDataString
+    );
 
     const prompt = `
     You are an assistant which provides personalized content for users of an online learning platform. You tailor your content ot match a user's preferences.
@@ -102,7 +170,7 @@ export default class UserDataClient {
 
   A good response looks like this: "I put ${userName} on plan <selected-plan/>. I chose to do this because I see that ${userName}'s learning history <explanation/>"
 
-  For user ${userName}, please use their past learning history and select a learning plan, and explain your choice. Their past learning history is as follows: <history>${learningDataString}</history>`
-    return await this.chat.getResponse(prompt, selectedModel)
+  For user ${userName}, please use their past learning history and select a learning plan, and explain your choice. Their past learning history is as follows: <history>${learningDataString}</history>`;
+    return await this.chat.getResponse(prompt, selectedModel);
   }
 }
