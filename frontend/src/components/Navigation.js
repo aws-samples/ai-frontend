@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MODELS } from "../constants/models";
+import { useLearningStyle } from '../context/LearningStyle';
 import {
   AppBar,
   Toolbar,
@@ -32,7 +33,7 @@ const Navigation = ({
   showExplanation,
   setShowExplanation,
 }) => {
-  const [learningStyle, setLearningStyle] = useState("");
+  const { learningStyle, setLearningStyle } = useLearningStyle();
 
   const toggleDrawer = (open) => (event) => {
     if (

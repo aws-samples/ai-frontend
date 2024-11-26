@@ -8,10 +8,12 @@ import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import USERS from "../constants/users";
 import UserDataClient from "../services/UserData";
-import { readPdf } from "../services/Pdf";
 import { Typography, Paper } from "@mui/material";
+import { readPdf } from "../services/Pdf";
+import { useLearningStyle } from '../context/LearningStyle';
 
-function ChapterSummary({ chat, learningStyle }) {
+function ChapterSummary({ chat }) {
+  const { learningStyle } = useLearningStyle();
   const [summary, setSummary] = useState("Generating summary...");
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +34,7 @@ function ChapterSummary({ chat, learningStyle }) {
 
 
         console.log(message, chat.model)
+        console.log("learning", learningStyle)
         const response = await chat.getResponseWithLearningStyle(
           message,
           chat.model,
@@ -116,7 +119,7 @@ function PdfViewer({ chat, filePath, learningStyle }) {
 
 function HomePage() {
   const [apiKey, setApiKey] = useState(process.env.REACT_APP_API_KEY || "");
-  const [learningStyle, setLearningStyle] = useState("");
+  const { learningStyle, setLearningStyle } = useLearningStyle();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [chat] = useState(() => new ChatClient());
@@ -212,6 +215,7 @@ function HomePage() {
     setInputDisabled(true);
 
     try {
+      console.log("learning", learningStyle)
       const agentOutput = await chat.getResponseWithLearningStyle(message, selectedModel, learningStyle);
       setMessages((prevMessages) => [...prevMessages, agentOutput]);
     } catch (error) {
@@ -272,7 +276,6 @@ function HomePage() {
       {authenticated ? (
         <div>
           <Navigation
-            learningStyle={learningStyle}
             drawerOpen={drawerOpen}
             setDrawerOpen={setDrawerOpen}
             apiKey={apiKey}
@@ -300,7 +303,7 @@ function HomePage() {
             </div>
             {pdfPath && (
               <div className="right">
-                <PdfViewer chat={chat} filePath={pdfPath} learningStyle={learningStyle}/>
+                <PdfViewer chat={chat} filePath={pdfPath} />
               </div>
             )}
           </div>
